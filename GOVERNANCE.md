@@ -11,9 +11,11 @@ Every change to a governed artifact carries, in its commit message or changelog 
 | Editorial | Language-only; no semantic change. | Typo fix, table reformatting. |
 | Tightening | Formalizer's precision work; doctrine unchanged. | Disambiguating a definition, fixing a garbled table. |
 | Doctrine | Changes what the framework claims. | Four-valued Δ, authorship clause, new invariant. |
-| Validated | A change plus the test that earned it. | A5c passing against a new U-handling rule. |
+| Tested | A change plus the test that earned it. | A5c passing against a new U-handling rule. |
 
-Plus: **who proposed it** (Caleb / Copilot / Muse / other), **when**, and **status**: Proposed or Validated. A Proposed change is a candidate (Cand/Hyp in Lexicon terms); it becomes Validated only through the evidence its class requires. Failure to validate is not falsification — the proposal stays on record.
+Plus: **who proposed it** (Caleb / Copilot / Muse / other), **when**, and **status**: Proposed or Validated.
+
+**Status is orthogonal to class.** A Doctrine-class change can be Proposed; an Editorial change is Validated by review. The change class says what kind of change it is; the status says what epistemic standing it has earned. "Merged into Git" is neither — a merge records that the change exists, not that it is validated. (The class formerly named "Validated" is now "Tested" precisely to prevent this type collapse.) A Proposed change is a candidate (Cand/Hyp in Lexicon terms); it becomes Validated only through the evidence its class requires. Failure to validate is not falsification — the proposal stays on record.
 
 ## 2. Proposed vs validated
 
@@ -22,7 +24,7 @@ No proposal is merged as validated without its evidence:
 - Editorial: review by the author.
 - Tightening: review plus a statement of the doctrine it preserves (the doctrine-vs-language line).
 - Doctrine: Caleb's explicit word. Silence is not approval.
-- Validated: the operational test, named and linked. A green test suite validates the *implementation against the spec*; it does not validate the *spec*.
+- Tested: the operational test, named and linked. A green test suite validates the *implementation against the spec*; it does not validate the *spec*.
 
 ## 3. Evidence discipline
 
@@ -74,6 +76,6 @@ This protocol revises under its own rules: amendments are Doctrine-class changes
 | # | Decision | Positions | Status |
 |---|---|---|---|
 | 1 | Four-valued Δ vs three-valued D as canonical | Caleb's A1–A9 (four-valued, adopted 2026-10-17) vs Lexicon v1.1/v1.2 text (three-valued) | Proposed (v1.3 implements four-valued per his adoption; awaiting his confirmation) |
-| 2 | T_unk operative criterion to spec level (v1.4) | Copilot's narrow amendment staged as `v1.4-proposed-amendment-t_unk.md` in trajectory-lexicon; counterfactual-sensitivity criterion; Depends demoted to information | PROPOSED — awaiting Caleb's explicit word |
+| 2 | T_unk operative criterion to spec level (v1.4) | Cut 2026-10-18 with Caleb's explicit word. Counterfactual-sensitivity criterion in spec; Depends demoted to information. | Closed |
 | 3 | Lexicon vs CDC relationship | Operationalization layer vs supersession | Open — Caleb's call |
 | 4 | Manuscript authority over formalizations | Struck from v0.3 normative text; §22 "neither overrules the other without Caleb's word" | Open — Caleb's call |
