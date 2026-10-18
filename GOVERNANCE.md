@@ -79,4 +79,4 @@ This protocol revises under its own rules: amendments are Doctrine-class changes
 | 2 | T_unk operative criterion to spec level (v1.4) | Cut 2026-10-18 with Caleb's explicit word. Counterfactual-sensitivity criterion in spec; Depends demoted to information. | Closed |
 | 3 | Lexicon vs CDC relationship | Operationalization layer vs supersession | Open — Caleb's call |
 | 4 | Manuscript authority over formalizations | Struck from v0.3 normative text; §22 "neither overrules the other without Caleb's word" | Open — Caleb's call |
-| 5 | Objective statement (§0.1, v1.5) | Maximize competence / legitimate delegated agency / leverage subject to sovereignty, revocability, bounded authority, corrigibility, auditability, recoverability — staged as `proposed-amendment-objective-v1.5.md` | PROPOSED — awaiting Caleb's explicit word |
+| 5 | Objective statement (§0.1, v1.5) | Cut 2026-10-18 on Caleb's explicit word ("Yes. Cut v1.5.": maximize-subject-to structure; constraints as hard bounds; "legitimate" = provenance-terminating delegation). | Closed |
