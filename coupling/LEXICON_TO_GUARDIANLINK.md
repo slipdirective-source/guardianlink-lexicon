@@ -50,3 +50,26 @@ Lexicon outputs — safety states, trigger firings, U-class blocks — can only 
 ## Constraint-provenance seam (§10 / §11)
 
 Hard constraints and AuthState transitions must originate from a rail created by the user or a legitimate institution, carrying provenance. The Lexicon may evaluate constraints, escalate non-dominated conflicts to the authorized human/policy process, and enforce — but if a constraint's provenance chain terminates in Lexicon inference rather than an authorizing principal, the constraint is void and the dependent action fails closed. This is where facts stop and authority starts: the normative-smuggling guardrail (§22) made structural.
+
+## Dual invariant (layer separation)
+
+**The Lexicon cannot execute. GuardianLink cannot independently manufacture epistemic warrant.** The Lexicon judges consequential admissibility; GuardianLink governs execution. Lexicon output can only narrow existing legitimate authority, never expand it. Every consequential action must (a) remain authorized under an externally sourced AuthorityRecord, (b) pass current cumulative admissibility (CumAdm) against actual trajectory history, (c) pass GuardianLink's own gates independently, and (d) return its sealed consequence record to the Lexicon as Yield — evidence for the next evaluation, never proof the reasoning was correct.
+
+## AuthorityRecord vs GovernanceConstraintRecord
+
+Two records, never merged:
+
+- **AuthorityRecord** — externally sourced. Who granted what, under which rail, with provenance terminating in the authorizing principal (user or legitimate institution). Lives in `authorizationRequirement.authorityRecord`. The Lexicon reads it; nothing in the Lexicon writes it.
+- **GovernanceConstraintRecord** — what the Lexicon evaluated: constraint id, the source rail it derives from, the Adm/CumAdm evaluation reference. Lives at top level. If a constraint's provenance chain terminates in Lexicon inference rather than an authorizing principal, the constraint is void.
+
+## Action binding (replay protection)
+
+Every LexiconOutput is bound to one exact canonical GuardianLink action (`actionBinding.canonicalActionId`) and one sealed history/state commitment (`actionBinding.historyCommitment`, e.g. the Merkle root at evaluation time). A constraint record presented against a different action, or against evolved history, is action-mismatched / history-mismatched and fails closed. Governance state that is missing, malformed, expired, superseded, unverifiable, action-mismatched, or history-mismatched fails closed — enumerated in `governanceStateCheck`, no silent pass.
+
+## Depends(Action, U) — the over-blocking fix
+
+`unresolvedDependencies` formalizes the relation: a U-class blocks execution **only when the action materially depends on resolving it**. U_auth on the payment step of a purchase: material, blocks. U_scale on an unrelated background parameter: recorded, does not block. This is the formal counterpart of the battery's "decision-dominant" threshold — the relation decides *whether* a U can block; the threshold decides *when* a material U is dominant. Both are needed; neither alone is sufficient.
+
+## CumAdm as the cumulative rule
+
+CumAdm (§16.1) is the single canonical cumulative-action rule for sequential interventions: individually admissible actions can compose into an inadmissible trajectory, so the gate evaluates over G_(0:t), Sigma_(0:t), Omega_(0:t) — never the instantaneous state alone. (Note: the engine's previously documented residuals do not list a cumulative-reasoning gap; this is adopted as a new hardening requirement on the coupling, not a cited defect.)
