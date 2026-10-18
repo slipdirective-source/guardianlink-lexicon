@@ -113,7 +113,7 @@ Human assents to A and B separately; agent composes A+B into consequence neither
 
 ## 5. What the Core Guarantees (The Brutally Small Claim)
 
-1. **Authority can be narrowed, but not widened.** (Attenuation only; `attenuateTo()` returns null on any widening.)
+1. **A capability cannot be widened through the supported attenuation operation.** (`attenuateTo()` returns null on any widening. This is scoped to the modeled capability mechanism; it does not claim that no semantically relevant authority can expand through composition, substrate change, exfiltration, or epoch rotation — see C-2, C-3, C-4.)
 2. **Authority cannot be reused beyond its allowance.** (Consumption enforced at commit point; replay refused.)
 3. **Revoked authority cannot authorize a later commit.** (Revocation checked at t_c; crash-persistent via WAL.)
 4. **A successful commit must be attributable to live authority at the commit point.** (Bound epoch verified live at t_c; capability consumed atomically with commit.)
@@ -134,7 +134,7 @@ Human assents to A and B separately; agent composes A+B into consequence neither
 1. Every mutation requires a capability.
 2. No privileged bypass for testing or administration.
 3. Every rejection reports the mechanically relevant reason (expired, revoked, consumed, wrong prefix, disallowed type, exhausted usage, state-invalidated, etc.).
-4. Successful mutation reports identity to correlate capability → authorization → commit.
+4. Successful mutation returns identifiers sufficient for the client and test harness to correlate the capability, authorization decision, and committed mutation within the demonstrated execution record. This is not provenance (C-2 remains open) and not a durable-audit guarantee.
 5. Restart is part of the demo (consumed/revoked stays dead).
 6. Outward build gets its own falsification tests.
 
@@ -146,7 +146,48 @@ Human assents to A and B separately; agent composes A+B into consequence neither
 
 ---
 
-## 7. Open Items for Assessor
+
+---
+
+## 7a. Critical Corrections to Cold-Reader Assessment
+
+The assessment is directionally correct but thinner than it reads in several places. These corrections are adopted.
+
+### "Unforgeable" requires a stated threat model
+On the JVM, `internal` is public in bytecode and reflection can construct anything (the test suite itself uses reflection). A sovereign authority object is only unforgeable against non-reflective callers in the same process.
+
+The mechanical version: a **permit** the issuer verifies via MAC or signature, with the signing key held outside the holder's reach. The permit ID is recorded in the WAL so single-use survives restart. The guarantee then holds across the process boundary, not just the module boundary.
+
+Threat model: the holder is an arbitrary in-process caller who may use reflection. The sovereign key is not in the holder's address space (or is hardware-bound). The permit is unforgeable iff the MAC/signature verifies and the key is not compromised.
+
+### Rotate vs. new lineage is enforced by permit contents, not API shape
+Both operations require sovereign authority, so API separation alone does not distinguish them. The permit must carry either an explicit `lineageId` (rotate: issue replacement under existing lineage) or an explicit `NEW` marker (create: establish genuinely separate constraint history), verified at mint time.
+
+`LineageId` allocation must be durable and unique. If "new lineage" can reuse an ID, it becomes a history-reset path.
+
+### Sovereign commands in the holder CLI are a privileged path
+If `issue-epoch` lives in the same client binary as `execute`, "no secondary mutation path" is false by construction. The holder client (attenuate, execute, inspect) and the sovereign tool (issue, revoke, rotate) must be separate binaries; the holder client never links against the sovereign tool.
+
+### Reason codes are a deliberate disclosure oracle
+Precise denials (revoked vs. expired vs. wrong prefix) tell a holder what exists and what state it is in. This is acceptable for Outward-0 as a **deliberate disclosure** for demonstration purposes. The codes must come from the engine's authorization decision, not recomputed in the client (which would be a second judgment path).
+
+### Sequencing: issuance before Outward-0
+The assessment says "begin Outward-0 now," but the sovereign issuance fix is a precondition for the "no bypass" constraint. Correct order:
+1. Split API + permit-based issuance (with the 10 falsification tests)
+2. Lineage IDs (SovereignRootId, LineageId, EpochId) as distinct types
+3. Then Outward-0 CLI (holder client only)
+
+### Lineage IDs are future counter keys, not enforcement claims
+The three identity types exist to provide a mechanically reliable key against which a future persistent counter can be maintained. They do not constitute cumulative enforcement. This must be explicit so nobody reads the IDs as a closed C-4.
+
+### Still open (not covered by assessment)
+- **Backward-clock hole:** Persist a time high-water mark; evaluate expiry against `max(now, hwm)`. Currently, a backward clock jump could revive an expired capability.
+- **Lock layer:** Which lock does `execute()` hold during the full authorize-to-commit sequence? (Phase 1 added `commitLock`, but the interaction with the durable store lock needs explicit documentation.)
+- **TLA+ coverage:** What exactly does the bounded model cover? The spec should state the modeled operations and the properties checked, so the "27M+ states, no violation" claim is interpretable.
+
+---
+
+## 7b. Open Items for Assessor
 
 1. **Sovereign-only issuance (C-4.1):** How should the sovereign issuance path be mechanically distinguished from general issuer access? Current `mintEpoch` is public. Options: split API, sealed authorization token, module boundary. Needs architectural decision.
 
