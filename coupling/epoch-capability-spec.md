@@ -1,11 +1,14 @@
 # Capability specification: mutation and epoch classes
 
-**Status:** SPEC v2 2026-10-18 (supersedes the epoch-only draft). No
-implementation. This revision works out the semantics rather than
-naming them: two capability classes, brutal expiry, constitutional
-no-self-renewal, autonomous attenuation, state dependencies,
-revocation/expiry separation, class-differentiated replay, and a
-precise definition of autonomy.
+**Status:** FROZEN v2.1 2026-10-18 (supersedes the epoch-only draft).
+No implementation. Frozen means: the semantics below are the contract;
+implementation translates them mechanically. Changes require a new
+spec version, not silent drift. This revision works out the semantics
+rather than naming them: two capability classes, brutal expiry,
+constitutional no-self-renewal, autonomous attenuation, state
+dependencies, revocation/expiry separation, class-differentiated
+replay, a precise definition of autonomy, and — promoted from open
+question to hard invariant — atomic usage accounting.
 
 External convergence (not lineage): capability-security literature
 independently uses temporal attenuation, leasing, and epoch-bound
@@ -245,17 +248,62 @@ effect with valid epoch key; post-expiry commit; post-revocation
 commit. These live in CI permanently. If a refactor resurrects a
 bypass, the tests demonstrate the property is gone.
 
-## 12. Open questions
+## 12. Hard build invariants (promoted from open questions)
 
-1. TTL values per scope class (TUN ~5 min suggested).
+**H1 — Atomic usage accounting.** `WithinBounds(k, usage)` introduces
+mutable security state. The bound check and the consumption record
+must be atomic with respect to the commit: there must not exist a
+committed governed effect whose corresponding capability consumption
+can disappear across the failure model. If checking the bound and
+recording consumption are separable, the capability can be overspent
+without violating its signature, predicate, or TTL. This is C-3
+reappearing one level higher: once authority is bounded, durable
+accounting becomes part of authorization. "Crash around exhaustion"
+is currently unresolved and stays marked unresolved until this
+invariant is demonstrated, not assumed.
+
+**H2 — Mediation before crypto.** Implementation order:
+1. Commit-boundary mediation + permanent negative controls (prove
+   every path to mutation is conditional on verification).
+2. Capability mechanism (predicate, lifetime, revocation, state deps)
+   with in-memory accounting.
+3. Durable accounting (H1).
+4. Crypto/keys (issuer, Keystore) last.
+
+Strong crypto protecting a capability that some forgotten path doesn't
+require is the failure mode this order prevents.
+
+**H3 — The key is not the governor.** Android Keystore (even
+hardware-backed) keeps key material non-exportable and restricts use,
+but a compromised app process can still *use* the app's keys. KeyMint
+places authorization responsibility on the calling framework.
+Keystore protects an ingredient of capability validity; it does not
+establish `P_k(m)`, usage semantics, lineage, or governed-effect
+mediation. The commit boundary is the governor.
+
+## 13. Open questions (tuning, not semantics)
+
+1. TTL values per scope class — deliberately unresolved; TTL is a
+   tuning parameter, and the semantic distinction needs proving before
+   optimizing the number.
 2. Capability in `ActionEvidence` vs. dispatcher handoff — interface.
 3. Issuer: ceremony-bound, Keystore-held key, attestation with nonce
    for freshness; public key to verifier at init.
 4. Predicate v2 deferred until v1 proves insufficient.
-5. Usage-counter crash durability — specify interaction with state
-   binding at implementation.
 
-## 13. The Android red-team target (binary)
+## 14. Failure semantics (clean list)
+
+- Wrong mutation → predicate refusal.
+- Expired authority → refusal at commit.
+- Old authority → cannot manufacture new authority.
+- Broken state lineage → refusal.
+- Cross-epoch reuse → refusal.
+- Alternate Android effect path → CI failure (permanent negative
+  control).
+- Exhausted authority → refusal.
+- Crash around exhaustion → **unresolved**, honestly marked.
+
+## 15. The Android red-team target (binary)
 
 Once implemented, the question is not "does the key system work" but:
 
