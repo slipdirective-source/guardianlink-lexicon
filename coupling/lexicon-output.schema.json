@@ -1,1 +1,357 @@
-{"$schema":"http://json-schema.org/draft-07/schema#","description":"Typed operational output of a Lexicon-governed decision (Trajectory Lexicon §16). Consumed by the execution layer through an explicit interface.","properties":{"admissibility":{"description":"Adm(I|goal,rho,Gamma,Auth,Prov,G_history) evaluation (§13.1); cumulative via CumAdm (§16.1).","properties":{"cumulative":{"description":"True if evaluated via CumAdm over G_(0:t), Sigma_(0:t), Omega_(0:t).","type":"boolean"},"evaluatedAt":{"format":"date-time","type":"string"},"failedConstraints":{"items":{"type":"string"},"type":"array"},"recoveryPath":{"description":"Required when HighConsequence(I): demonstrated or qualified recovery path.","type":"string"},"verdict":{"enum":["Pass","Fail"],"type":"string"}},"required":["verdict","evaluatedAt"],"type":"object"},"authorizationRequirement":{"description":"Auth state and consent/authority evaluation (§§9, 11).","properties":{"authState":{"enum":["Unrequested","Requested","Granted","Revoked","Expired"],"type":"string"},"consent":{"description":"Consent tuple: capacity, information, specificity, voluntariness, revocability, scope, duration, verification.","type":"object"},"proxyProvenance":{"description":"Required when direct consent is impossible.","type":"string"}},"required":["authState"],"type":"object"},"decisionRecord":{"description":"The consequence record for the decision (§17.1 proof obligation).","properties":{"claim":{"description":"The claim, retaining type, regime, warrant, scope, provenance.","type":"string"},"decisionId":{"description":"Unique decision identifier (anchors into the Merkle audit log).","type":"string"},"discrimination":{"description":"Four-valued outcome per §4.","properties":{"note":{"description":"'empty' = ∅ inapplicable: the question could not be posed; routes to question revision, never to 'nothing'.","type":"string"},"value":{"enum":["1","0","?","empty"],"type":"string"}},"type":"object"},"provenance":{"description":"Prov: source/instrument chain supporting evidence integrity.","type":"object"},"regime":{"description":"R0 precommitment: purpose, horizon, admittedOps, stopRules, revisionRules.","type":"object"},"speechAct":{"enum":["Stim","Q","Cand","Hyp","Assert","Dir"],"type":"string"},"timestamp":{"format":"date-time","type":"string"},"unresolved":{"description":"Typed unresolved remainder (§7).","items":{"enum":["U_obs","U_model","U_ident","U_scale","U_prob","U_value","U_auth","U_integrity","U_fund"],"type":"string"},"type":"array"},"warrant":{"description":"Gamma: evidence licensing this promotion/action.","type":"object"}},"required":["decisionId","timestamp","speechAct","claim","regime","warrant","provenance"],"type":"object"},"recovery":{"description":"RecPath tuple (§8.1).","properties":{"authority":{"type":"string"},"dependencies":{"items":{"type":"string"},"type":"array"},"resources":{"items":{"type":"string"},"type":"array"},"rollback":{"type":"string"},"tested":{"description":"Untested high-consequence recovery counts as degraded, not demonstrated.","type":"boolean"},"trigger":{"type":"string"}},"type":"object"},"revision":{"description":"Revision boundary (§16.1, §21 step 19): model/causal/probability/trajectory updates with provenance of superseded state.","properties":{"changes":{"items":{"type":"string"},"type":"array"},"regimeDelta":{"description":"Required when the regime changed post-result: old, new, independentReason, newVulnerability, authorization.","type":"object"},"supersedes":{"description":"decisionId of the superseded record; provenance preserved.","type":"string"}},"type":"object"},"safetyState":{"description":"Bound safety state (§13); binds the engine response per safety-state-mapping.md.","enum":["GREEN","YELLOW","ORANGE","RED","BLACK"],"type":"string"}},"required":["decisionRecord","admissibility","safetyState","authorizationRequirement","recovery","revision"],"title":"LexiconOutput","type":"object"}
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Typed operational output of a Lexicon-governed decision (Trajectory Lexicon \u00a716). Consumed by the execution layer through an explicit interface.",
+  "properties": {
+    "admissibility": {
+      "description": "Adm(I|goal,rho,Gamma,Auth,Prov,G_history) evaluation (\u00a713.1); cumulative via CumAdm (\u00a716.1).",
+      "properties": {
+        "cumulative": {
+          "description": "True if evaluated via CumAdm over G_(0:t), Sigma_(0:t), Omega_(0:t).",
+          "type": "boolean"
+        },
+        "evaluatedAt": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "failedConstraints": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "recoveryPath": {
+          "description": "Required when HighConsequence(I): demonstrated or qualified recovery path.",
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "Pass",
+            "Fail"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "verdict",
+        "evaluatedAt"
+      ],
+      "type": "object"
+    },
+    "authorizationRequirement": {
+      "description": "Auth state and consent/authority evaluation (\u00a7\u00a79, 11).",
+      "properties": {
+        "authState": {
+          "enum": [
+            "Unrequested",
+            "Requested",
+            "Granted",
+            "Revoked",
+            "Expired"
+          ],
+          "type": "string"
+        },
+        "consent": {
+          "description": "Consent tuple: capacity, information, specificity, voluntariness, revocability, scope, duration, verification.",
+          "type": "object"
+        },
+        "proxyProvenance": {
+          "description": "Required when direct consent is impossible.",
+          "type": "string"
+        },
+        "authorityRecord": {
+          "description": "Externally sourced authority. Origin: user/institution rail with provenance; NEVER Lexicon inference. Separate from governanceConstraintRecord.",
+          "properties": {
+            "grantedBy": {
+              "description": "Authorizing principal.",
+              "type": "string"
+            },
+            "provenance": {
+              "description": "Chain terminating in the authorizing principal.",
+              "type": "object"
+            },
+            "scope": {
+              "type": "string"
+            },
+            "validUntil": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          "required": [
+            "grantedBy",
+            "provenance"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "authState"
+      ],
+      "type": "object"
+    },
+    "decisionRecord": {
+      "description": "The consequence record for the decision (\u00a717.1 proof obligation).",
+      "properties": {
+        "claim": {
+          "description": "The claim, retaining type, regime, warrant, scope, provenance.",
+          "type": "string"
+        },
+        "decisionId": {
+          "description": "Unique decision identifier (anchors into the Merkle audit log).",
+          "type": "string"
+        },
+        "discrimination": {
+          "description": "Four-valued outcome per \u00a74.",
+          "properties": {
+            "note": {
+              "description": "'empty' = \u2205 inapplicable: the question could not be posed; routes to question revision, never to 'nothing'.",
+              "type": "string"
+            },
+            "value": {
+              "enum": [
+                "1",
+                "0",
+                "?",
+                "empty"
+              ],
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "provenance": {
+          "description": "Prov: source/instrument chain supporting evidence integrity.",
+          "type": "object"
+        },
+        "regime": {
+          "description": "R0 precommitment: purpose, horizon, admittedOps, stopRules, revisionRules.",
+          "type": "object"
+        },
+        "speechAct": {
+          "enum": [
+            "Stim",
+            "Q",
+            "Cand",
+            "Hyp",
+            "Assert",
+            "Dir"
+          ],
+          "type": "string"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "unresolved": {
+          "description": "Typed unresolved remainder (\u00a77).",
+          "items": {
+            "enum": [
+              "U_obs",
+              "U_model",
+              "U_ident",
+              "U_scale",
+              "U_prob",
+              "U_value",
+              "U_auth",
+              "U_integrity",
+              "U_fund"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "warrant": {
+          "description": "Gamma: evidence licensing this promotion/action.",
+          "type": "object"
+        }
+      },
+      "required": [
+        "decisionId",
+        "timestamp",
+        "speechAct",
+        "claim",
+        "regime",
+        "warrant",
+        "provenance"
+      ],
+      "type": "object"
+    },
+    "recovery": {
+      "description": "RecPath tuple (\u00a78.1).",
+      "properties": {
+        "authority": {
+          "type": "string"
+        },
+        "dependencies": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "resources": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "rollback": {
+          "type": "string"
+        },
+        "tested": {
+          "description": "Untested high-consequence recovery counts as degraded, not demonstrated.",
+          "type": "boolean"
+        },
+        "trigger": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "revision": {
+      "description": "Revision boundary (\u00a716.1, \u00a721 step 19): model/causal/probability/trajectory updates with provenance of superseded state.",
+      "properties": {
+        "changes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "regimeDelta": {
+          "description": "Required when the regime changed post-result: old, new, independentReason, newVulnerability, authorization.",
+          "type": "object"
+        },
+        "supersedes": {
+          "description": "decisionId of the superseded record; provenance preserved.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "safetyState": {
+      "description": "Bound safety state (\u00a713); binds the engine response per safety-state-mapping.md.",
+      "enum": [
+        "GREEN",
+        "YELLOW",
+        "ORANGE",
+        "RED",
+        "BLACK"
+      ],
+      "type": "string"
+    },
+    "governanceConstraintRecord": {
+      "description": "What the Lexicon evaluated: constraint id, the rail it came from, and the binding. The Lexicon evaluates constraints; it never mints them.",
+      "properties": {
+        "constraintId": {
+          "type": "string"
+        },
+        "sourceRail": {
+          "description": "The user/institution rail this constraint derives from, with provenance.",
+          "type": "string"
+        },
+        "evaluation": {
+          "description": "Adm/CumAdm evaluation reference.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "constraintId",
+        "sourceRail"
+      ],
+      "type": "object"
+    },
+    "actionBinding": {
+      "description": "Binds this output to one exact action and one sealed history. Mismatch on either fails closed.",
+      "properties": {
+        "canonicalActionId": {
+          "description": "Exact canonical GuardianLink action this output governs.",
+          "type": "string"
+        },
+        "historyCommitment": {
+          "description": "Commitment (e.g. Merkle root) of the sealed execution history/state at evaluation time.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "canonicalActionId",
+        "historyCommitment"
+      ],
+      "type": "object"
+    },
+    "unresolvedDependencies": {
+      "description": "Depends(Action, U) relation. A U-class blocks execution only when the action materially depends on resolving it; otherwise the U is recorded and execution may proceed on the best warranted option.",
+      "items": {
+        "properties": {
+          "material": {
+            "description": "True iff the action depends on resolving this U.",
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "uClass": {
+            "enum": [
+              "U_obs",
+              "U_model",
+              "U_ident",
+              "U_scale",
+              "U_prob",
+              "U_value",
+              "U_auth",
+              "U_integrity",
+              "U_fund"
+            ]
+          }
+        },
+        "required": [
+          "uClass",
+          "material"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "governanceStateCheck": {
+      "description": "Fail-closed enumeration. Missing, malformed, expired, superseded, unverifiable, action-mismatched, or history-mismatched governance state fails closed.",
+      "properties": {
+        "checkedAt": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "failures": {
+          "description": "Any non-empty entry fails the action closed.",
+          "items": {
+            "enum": [
+              "missing",
+              "malformed",
+              "expired",
+              "superseded",
+              "unverifiable",
+              "action-mismatched",
+              "history-mismatched"
+            ]
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "checkedAt",
+        "failures"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "decisionRecord",
+    "admissibility",
+    "safetyState",
+    "authorizationRequirement",
+    "governanceConstraintRecord",
+    "actionBinding",
+    "unresolvedDependencies",
+    "governanceStateCheck",
+    "recovery",
+    "revision"
+  ],
+  "title": "LexiconOutput",
+  "type": "object"
+}
