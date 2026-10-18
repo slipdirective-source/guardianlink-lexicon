@@ -80,6 +80,7 @@ This protocol revises under its own rules: amendments are Doctrine-class changes
 | 3 | Lexicon vs CDC relationship | Operationalization layer vs supersession | Open — Caleb's call |
 | 4 | Manuscript authority over formalizations | Struck from v0.3 normative text; §22 "neither overrules the other without Caleb's word" | Open — Caleb's call |
 | 5 | Objective statement (§0.1, v1.5) | Cut 2026-10-18 on Caleb's explicit word ("Yes. Cut v1.5.": maximize-subject-to structure; constraints as hard bounds; "legitimate" = provenance-terminating delegation). | Closed |
+| 6 | Autonomy as emergent operating envelope (doctrine) | Proposed by Copilot via Caleb relay 2026-10-18: autonomy is not a permission level set once but an envelope that expands as the human-system pair accumulates warranted history; competence recursively produces the information for the human to delegate more intelligently, without competence ever becoming authorization; the mature system feels more autonomous while possessing no more self-granted authority. | Proposed — awaiting Caleb's explicit adoption |
 
 ## 11. The objective razor
 
@@ -107,6 +108,18 @@ Batching is legitimate iff ALL of the following hold:
 3. No item's substantive evaluation is skipped. Per-item justification records
    are mandatory; the batch may amortize the *ceremony* but never the
    *judgment*.
+
+Mechanical test: **batching is legitimate only while accountability remains
+atomically reconstructible.** From the audit trail alone, an auditor must be
+able to reconstruct exactly which items the batch covered and what was
+decided or recorded about each one. If the batch degrades into a single
+undifferentiated approval, it fails — however convenient.
+
+Anti-hammer clause: §12 is not an optimization hammer. Some ceremony is
+constitutive of the control it surrounds — compressing it deletes part of the
+governing mechanism rather than reducing overhead. The timing-load-bearing
+cases below are examples. Treat every new batching proposal as guilty until
+proven reconstructible.
 
 **Known failure mode — rubber-stamping.** The architecture can make inattention
 visible (per-item justifications, enumerated approvals, audited batch

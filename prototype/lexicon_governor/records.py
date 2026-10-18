@@ -136,3 +136,35 @@ class RegimeDeltaRecord:
     justification: str
     approved_by: str         # granting principal, never the agent
     approved_at: float
+
+
+@dataclass(frozen=True)
+class StandingDelegationProposal:
+    """The agent proposes a standing delegation, grounded in the delegation
+    report (warranted history). Proposing is analysis; disposing is the
+    principal's act."""
+    proposal_id: str
+    proposer: str
+    authority_id: str
+    delegation_class: str      # "rail-change"
+    rail_id: str
+    bounds: dict               # e.g. {"fields": ["max_per_txn"], "max_new_value": 100.0}
+    review_ttl: float          # seconds; the delegation expires and must be renewed
+    rationale: str             # grounded in delegation_report() numbers
+    proposed_at: float
+
+
+@dataclass(frozen=True)
+class StandingDelegation:
+    """A bounded, expiring, revocable pre-authorization for a class of
+    proposals. Authority still terminates in the granting principal; the
+    envelope expands, self-granted authority does not."""
+    delegation_id: str
+    proposal_id: str
+    granted_by: str
+    holder: str
+    delegation_class: str
+    rail_id: str
+    bounds: dict
+    granted_at: float
+    review_by: float

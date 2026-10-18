@@ -11,6 +11,7 @@ import uuid
 from .records import (
     AuthorityRecord, GovernanceConstraintRecord, ConsequenceRecord, HistoryLog, hash_obj,
     RailChangeProposal, RegimeDeltaRecord,
+    StandingDelegationProposal, StandingDelegation,
 )
 
 
@@ -170,7 +171,12 @@ class Governor:
     then executes under binding, freshness, authority, and ratchet checks."""
 
     def __init__(self, rails: dict, clock: Clock):
-        self.rails = rails
+        import copy as _copy
+        # Each governor owns its rails: a RegimeDelta applies to this
+        # deployment's rails only. Sharing mutable rail instances across
+        # governors would let one deployment's rail changes leak into
+        # another's — a cross-instance contamination the ratchet forbids.
+        self.rails = _copy.deepcopy(rails)
         self.clock = clock
         self.history = HistoryLog()
         self.lexicon = LexiconLayer()
@@ -181,6 +187,9 @@ class Governor:
         self.consumed: set[str] = set()
         self.proposals: dict[str, RailChangeProposal] = {}
         self.rail_versions: list[RegimeDeltaRecord] = []
+        self.standing_proposals: dict[str, StandingDelegationProposal] = {}
+        self.standing: dict[str, StandingDelegation] = {}
+        self.revoked_standing: set[str] = set()
 
     # ---- authority management (external: user/institution) ----
     def grant_authority(self, auth: AuthorityRecord):
@@ -249,7 +258,8 @@ class Governor:
         self.proposals[prop.proposal_id] = prop
         self.history.append("rail change proposed",
                             {"proposal_id": prop.proposal_id, "rail": rail_id,
-                             "field": field, "justification": justification})
+                             "field": field, "new_value": new_value,
+                             "justification": justification})
         return prop
 
     def approve_rail_changes(self, proposal_ids: list[str],
@@ -268,24 +278,234 @@ class Governor:
             if acting_principal != auth.granted_by:
                 raise FailClosed("NOT_GRANTING_PRINCIPAL",
                                  {"acting": acting_principal})
-            rail = self.rails[prop.rail_id]
-            setattr(rail, prop.field, prop.new_value)
-            delta = RegimeDeltaRecord(
-                delta_id="rd-" + _uuid.uuid4().hex[:12],
-                proposal_id=pid, rail_id=prop.rail_id, field=prop.field,
-                old_value=prop.old_value, new_value=prop.new_value,
-                justification=prop.justification,
-                approved_by=acting_principal, approved_at=self.clock.now())
-            self.rail_versions.append(delta)
-            self.history.append("regime delta applied",
-                                {"delta_id": delta.delta_id, "rail": prop.rail_id,
-                                 "field": prop.field,
-                                 "old": prop.old_value, "new": prop.new_value,
-                                 "justification": prop.justification,
-                                 "approved_by": acting_principal})
-            del self.proposals[pid]
-            applied.append(delta)
+            applied.append(self._apply_rail_change(prop, acting_principal))
         return applied
+
+    def _apply_rail_change(self, prop: RailChangeProposal, approved_by: str,
+                           via_standing: str | None = None) -> RegimeDeltaRecord:
+        import uuid as _uuid
+        rail = self.rails[prop.rail_id]
+        setattr(rail, prop.field, prop.new_value)
+        delta = RegimeDeltaRecord(
+            delta_id="rd-" + _uuid.uuid4().hex[:12],
+            proposal_id=prop.proposal_id, rail_id=prop.rail_id,
+            field=prop.field, old_value=prop.old_value,
+            new_value=prop.new_value, justification=prop.justification,
+            approved_by=approved_by, approved_at=self.clock.now())
+        self.rail_versions.append(delta)
+        payload = {"delta_id": delta.delta_id, "rail": prop.rail_id,
+                   "field": prop.field,
+                   "old": prop.old_value, "new": prop.new_value,
+                   "justification": prop.justification,
+                   "approved_by": approved_by}
+        if via_standing:
+            payload["via_standing"] = via_standing
+        self.history.append("regime delta applied", payload)
+        del self.proposals[prop.proposal_id]
+        return delta
+
+    # ---- S3: learned delegation (autonomy as emergent operating envelope) ----
+    def reject_proposal(self, proposal_id: str, acting_principal: str,
+                        reason: str):
+        """The principal explicitly rejects a proposal. Rejections are
+        intervention data: the delegation report learns from them."""
+        prop = self.proposals.get(proposal_id)
+        if prop is None:
+            raise FailClosed("UNKNOWN_PROPOSAL", {"proposal_id": proposal_id})
+        auth = self._live_authority(prop.authority_id)
+        if acting_principal != auth.granted_by:
+            raise FailClosed("NOT_GRANTING_PRINCIPAL", {"acting": acting_principal})
+        self.history.append("rail change rejected",
+                            {"proposal_id": proposal_id, "rail": prop.rail_id,
+                             "field": prop.field, "new_value": prop.new_value,
+                             "reason": reason, "rejected_by": acting_principal})
+        del self.proposals[proposal_id]
+
+    def delegation_report(self) -> dict:
+        """What the principal routinely authorizes, where they intervene, and
+        which rails are candidates for ceremony compression. Built from the
+        audit history — the warranted record, not the agent's impression."""
+        rails: dict[str, dict] = {}
+        def row(rail_id: str) -> dict:
+            return rails.setdefault(rail_id, {"proposed": 0, "applied": 0,
+                                              "rejected": 0,
+                                              "max_applied_new_value": None,
+                                              "min_rejected_new_value": None})
+        for e in self.history.entries:
+            k, p = e["kind"], e["payload"]
+            if k == "rail change proposed":
+                row(p["rail"])["proposed"] += 1
+            elif k == "regime delta applied":
+                r = row(p["rail"]); r["applied"] += 1
+                nv = p.get("new")
+                if isinstance(nv, (int, float)) and (
+                        r["max_applied_new_value"] is None
+                        or nv > r["max_applied_new_value"]):
+                    r["max_applied_new_value"] = nv
+            elif k == "rail change rejected":
+                r = row(p["rail"]); r["rejected"] += 1
+                nv = p.get("new_value")
+                if isinstance(nv, (int, float)) and (
+                        r["min_rejected_new_value"] is None
+                        or nv < r["min_rejected_new_value"]):
+                    r["min_rejected_new_value"] = nv
+        routine = [rid for rid, r in rails.items()
+                   if r["applied"] >= 5 and r["rejected"] == 0]
+        near_routine = [rid for rid, r in rails.items()
+                        if r["applied"] >= 5 and r["rejected"] > 0
+                        and r["applied"] / max(1, r["applied"] + r["rejected"]) >= 0.8]
+        return {"rails": rails, "routine_candidates": routine,
+                "near_routine": near_routine}
+
+    def propose_standing_delegation(self, proposer_holder: str,
+                                    authority_id: str, rail_id: str,
+                                    bounds: dict, review_ttl: float,
+                                    rationale: str
+                                    ) -> StandingDelegationProposal:
+        """The agent proposes a standing delegation grounded in the delegation
+        report. Competence produces the information; the principal disposes."""
+        import uuid as _uuid
+        auth = self._live_authority(authority_id)
+        if proposer_holder != auth.holder:
+            raise FailClosed("HOLDER_MISMATCH", {})
+        if rail_id not in self.rails:
+            raise FailClosed("UNKNOWN_RAIL", {"rail_id": rail_id})
+        prop = StandingDelegationProposal(
+            proposal_id="sdp-" + _uuid.uuid4().hex[:12],
+            proposer=proposer_holder, authority_id=authority_id,
+            delegation_class="rail-change", rail_id=rail_id, bounds=bounds,
+            review_ttl=review_ttl, rationale=rationale,
+            proposed_at=self.clock.now())
+        self.standing_proposals[prop.proposal_id] = prop
+        self.history.append("standing delegation proposed",
+                            {"proposal_id": prop.proposal_id, "rail": rail_id,
+                             "bounds": bounds, "rationale": rationale})
+        return prop
+
+    def grant_standing_delegation(self, proposal_id: str,
+                                  acting_principal: str) -> StandingDelegation:
+        """The principal grants the standing delegation: bounded, expiring,
+        revocable. The envelope expands; self-granted authority does not."""
+        import uuid as _uuid
+        prop = self.standing_proposals.get(proposal_id)
+        if prop is None:
+            raise FailClosed("UNKNOWN_PROPOSAL", {"proposal_id": proposal_id})
+        auth = self._live_authority(prop.authority_id)
+        if acting_principal != auth.granted_by:
+            raise FailClosed("NOT_GRANTING_PRINCIPAL", {"acting": acting_principal})
+        sd = StandingDelegation(
+            delegation_id="sd-" + _uuid.uuid4().hex[:12],
+            proposal_id=proposal_id, granted_by=acting_principal,
+            holder=prop.proposer, delegation_class=prop.delegation_class,
+            rail_id=prop.rail_id, bounds=prop.bounds,
+            granted_at=self.clock.now(),
+            review_by=self.clock.now() + prop.review_ttl)
+        self.standing[sd.delegation_id] = sd
+        self.history.append("standing delegation granted",
+                            {"delegation_id": sd.delegation_id,
+                             "rail": prop.rail_id, "bounds": prop.bounds,
+                             "granted_by": acting_principal,
+                             "review_by": sd.review_by})
+        del self.standing_proposals[proposal_id]
+        return sd
+
+    def revoke_standing_delegation(self, delegation_id: str,
+                                   acting_principal: str):
+        sd = self.standing.get(delegation_id)
+        if sd is None:
+            raise FailClosed("UNKNOWN_STANDING", {"delegation_id": delegation_id})
+        if acting_principal != sd.granted_by:
+            raise FailClosed("NOT_GRANTING_PRINCIPAL", {"acting": acting_principal})
+        self.revoked_standing.add(delegation_id)
+        self.history.append("standing delegation revoked",
+                            {"delegation_id": delegation_id,
+                             "revoked_by": acting_principal})
+
+    def submit_review(self, authority_id: str, execution_seqs: list[int],
+                      dispositions: dict[int, str], acting_principal: str,
+                      note: str = "") -> str:
+        """Third domain for the ceremony-batching principle: retrospective
+        oversight. S1/S2/S3 batch *prospective authorization*; this batches
+        *retrospective review* — structurally different, same test.
+
+        One session covers N executed actions; each item gets its own
+        disposition (acknowledged / flagged / escalated), individually
+        recorded. Dispositions are observation only: they grant, revoke, and
+        change nothing. A flagged item is not a revoked authority and not a
+        reassessed trigger — review cannot substitute for control actions."""
+        import uuid as _uuid
+        auth = self._live_authority(authority_id)
+        if acting_principal != auth.granted_by:
+            raise FailClosed("NOT_GRANTING_PRINCIPAL", {"acting": acting_principal})
+        valid = {"acknowledged", "flagged", "escalated"}
+        items = {}
+        for seq in execution_seqs:
+            e = self.history.entries[seq] if 0 <= seq < len(self.history.entries) else None
+            if e is None or e["kind"] != "execution":
+                raise FailClosed("REVIEW_UNKNOWN_ITEM",
+                                 {"seq": seq,
+                                  "kind": e["kind"] if e else "absent"})
+            items[seq] = e["payload"]
+        if set(dispositions.keys()) != set(execution_seqs):
+            raise FailClosed("REVIEW_DISPOSITION_MISMATCH",
+                             {"items": sorted(execution_seqs),
+                              "disposed": sorted(dispositions.keys())})
+        for seq, d in dispositions.items():
+            if d not in valid:
+                raise FailClosed("REVIEW_BAD_DISPOSITION",
+                                 {"seq": seq, "disposition": d})
+        session_id = "rev-" + _uuid.uuid4().hex[:12]
+        self.history.append("review session",
+                            {"session_id": session_id,
+                             "reviewed_by": acting_principal,
+                             "items": [{"seq": seq,
+                                        "action": items[seq].get("action"),
+                                        "disposition": dispositions[seq]}
+                                       for seq in execution_seqs],
+                             "note": note})
+        return session_id
+
+    def apply_within_standing(self, rail_proposal_id: str,
+                              acting_holder: str) -> RegimeDeltaRecord:
+        """Apply a rail proposal under a live standing delegation: no per-item
+        principal ceremony, but the full RegimeDelta record is still written and
+        authority still terminates in the granting principal."""
+        prop = self.proposals.get(rail_proposal_id)
+        if prop is None:
+            raise FailClosed("UNKNOWN_PROPOSAL", {"proposal_id": rail_proposal_id})
+        auth = self._live_authority(prop.authority_id)
+        if acting_holder != auth.holder:
+            raise FailClosed("HOLDER_MISMATCH", {})
+        covering = [sd for sd in self.standing.values()
+                    if sd.holder == acting_holder
+                    and sd.delegation_class == "rail-change"
+                    and sd.rail_id == prop.rail_id]
+        if not covering:
+            raise FailClosed("NO_COVERING_STANDING", {})
+        live = [sd for sd in covering
+                if sd.delegation_id not in self.revoked_standing
+                and self.clock.now() <= sd.review_by]
+        if not live:
+            sd0 = covering[0]
+            if sd0.delegation_id in self.revoked_standing:
+                raise FailClosed("STANDING_REVOKED", {})
+            raise FailClosed("STANDING_EXPIRED", {})
+
+        def in_bounds(sd: StandingDelegation) -> bool:
+            b = sd.bounds
+            if prop.field not in b.get("fields", []):
+                return False
+            mx = b.get("max_new_value")
+            if (mx is not None and isinstance(prop.new_value, (int, float))
+                    and prop.new_value > mx):
+                return False
+            return True
+
+        sd = next((s for s in live if in_bounds(s)), None)
+        if sd is None:
+            raise FailClosed("STANDING_BOUNDS_EXCEEDED", {})
+        return self._apply_rail_change(prop, approved_by=sd.granted_by,
+                                       via_standing=sd.delegation_id)
 
     def revoke_authority(self, record_id: str):
         self.revoked.add(record_id)

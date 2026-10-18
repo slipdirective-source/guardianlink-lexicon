@@ -39,9 +39,10 @@ action *effects* are simulated; the governance machinery is real.
 | `test_adversarial.py` | 11 adversarial coupling cases, all fail closed in the prescribed direction |
 | `test_feedback.py` | Consequences return as Yield/evidence; no auto-promotion; success expands nothing |
 | `test_sacrifice.py` | S1a/S1b/S2 executable: opaque inheritance fails, explicit delegation works, self-loosened rails rejected |
-| `test_recovery.py` | Leverage recovery: batch sub-delegation, RegimeDelta proposal/batch-approval |
+| `test_recovery.py` | Leverage recovery: batch sub-delegation, RegimeDelta proposal/batch-approval, S3 learned standing delegation |
+| `test_review.py` | Third domain: batched retrospective review, per-item dispositions, review changes nothing |
 
-Run: `python3 run_all.py` → 25 passed, 0 failed (2026-10-18).
+Run: `python3 run_all.py` → 30 passed, 0 failed (2026-10-18).
 
 ## Known prototype limits (not defects in the contract)
 
@@ -57,6 +58,8 @@ Run: `python3 run_all.py` → 25 passed, 0 failed (2026-10-18).
 - S2: `propose_rail_change` + `approve_rail_changes` — agent proposes with justification, granting principal disposes (batchable); agent self-approval rejected.
 
 ## Dogfood log
+
+- 2026-10-18: test pollution caught cross-instance rail contamination — rail instances were shared across Governor instances, so one deployment's RegimeDelta leaked into another's. Fixed: each Governor deep-copies its rails at construction (per-deployment rail ownership, which the ratchet requires).
 
 - 2026-10-18: `test_no_auto_promotion` caught a replay hole — an identical
   repeat action could re-execute on one record within TTL. Classified:

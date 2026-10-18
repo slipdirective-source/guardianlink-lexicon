@@ -5,12 +5,13 @@ Prototype status: the governance path is real (records, ratchet, binding,
 CumAdm, decision-dominance, hash-chained history); action *effects* are
 simulated. It demonstrates the contract, not the engine internals.
 """
-from .records import HistoryLog, AuthorityRecord, GovernanceConstraintRecord, ConsequenceRecord, RailChangeProposal, RegimeDeltaRecord
+from .records import HistoryLog, AuthorityRecord, GovernanceConstraintRecord, ConsequenceRecord, RailChangeProposal, RegimeDeltaRecord, StandingDelegationProposal, StandingDelegation
 from .governor import Governor, LexiconLayer, Clock, FailClosed
 from .actions import (Action, SendEmail, ModifyFile, SpendMoney, ExternalApiCall,
                       ALL_RAILS)
 
 __all__ = ["HistoryLog", "AuthorityRecord", "GovernanceConstraintRecord",
-           "ConsequenceRecord", "RailChangeProposal", "RegimeDeltaRecord", "Governor", "LexiconLayer", "Clock", "FailClosed",
+           "ConsequenceRecord", "RailChangeProposal", "RegimeDeltaRecord",
+ "StandingDelegationProposal", "StandingDelegation", "Governor", "LexiconLayer", "Clock", "FailClosed",
            "Action", "SendEmail", "ModifyFile", "SpendMoney", "ExternalApiCall",
            "ALL_RAILS"]

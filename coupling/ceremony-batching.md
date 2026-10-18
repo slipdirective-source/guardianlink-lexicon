@@ -69,15 +69,42 @@ opaque case. If batching ever merges items such that the question stops having
 per-item answers, condition (1) fails and the batching is illegitimate —
 regardless of how convenient it is.
 
+## Third domain: retrospective review (structurally different)
+
+S1 (sub-delegation) and S2 (rail changes) batch *prospective authorization*.
+S3 (standing delegations, `test_s3_envelope_expansion`) batches the same
+ceremony *across time* and adds the learning recursion — related to S2, not
+independent. The structurally different domain is **batched retrospective
+review** (`Governor.submit_review`, `prototype/tests/test_review.py`): one
+review session covers N executed actions, each item receiving its own
+disposition (acknowledged / flagged / escalated), individually recorded.
+
+The same mechanical test applies — from the audit trail alone, an auditor
+reconstructs exactly what the principal decided about each item — and the
+abuse tests are the interesting part:
+
+- Items without dispositions cannot pass through silently
+  (`REVIEW_DISPOSITION_MISMATCH`); non-execution entries cannot be smuggled
+  in (`REVIEW_UNKNOWN_ITEM`); dispositions are a closed set.
+- **Review is observation only.** An escalated disposition revokes nothing,
+  changes no rail, and grants no power. Review cannot substitute for control
+  actions (revocation, reassessment) — the batch never becomes a backdoor.
+
+This is the principle surviving in a domain with reversed temporal direction
+(looking back instead of authorizing forward) and a different failure mode
+(oversight degrading into theater rather than authorization degrading into
+rubber-stamping). Three domains, same reconstructibility test.
+
 ## Generalization claim (current)
 
-The principle holds across S1, S2, survives the rubber-stamping objection
-(with a documented residual), refuses the timing-load-bearing cases, and
-distinguishes itself from the rejected opaque alternative structurally. Two
-demonstrations plus three survived stress tests is enough for engineering
-protocol; Lexicon-doctrine promotion waits on a third independent domain
-(e.g., batched audit review sessions, batched consent-scope grants) showing
-the same structure.
+The principle holds across three structurally distinct domains (prospective
+delegation, prospective rail change, retrospective review), survives the
+rubber-stamping objection (with the attention residual documented, not
+solved), refuses the timing-load-bearing cases, and distinguishes itself
+from the rejected opaque alternative structurally. That justifies an
+engineering pattern worth actively testing; Lexicon-doctrine promotion still
+waits on Caleb's explicit word (open decision #6 covers the neighboring
+autonomy-envelope claim).
 
 ## The deeper result
 
