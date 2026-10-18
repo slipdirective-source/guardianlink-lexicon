@@ -66,9 +66,9 @@ Two records, never merged:
 
 Every LexiconOutput is bound to one exact canonical GuardianLink action (`actionBinding.canonicalActionId`) and one sealed history/state commitment (`actionBinding.historyCommitment`, e.g. the Merkle root at evaluation time). A constraint record presented against a different action, or against evolved history, is action-mismatched / history-mismatched and fails closed. Governance state that is missing, malformed, expired, superseded, unverifiable, action-mismatched, or history-mismatched fails closed — enumerated in `governanceStateCheck`, no silent pass.
 
-## Depends(Action, U) — the over-blocking fix
+## Depends(Action, U) — necessary information, not the discriminator
 
-`unresolvedDependencies` formalizes the relation: a U-class blocks execution **only when the action materially depends on resolving it**. U_auth on the payment step of a purchase: material, blocks. U_scale on an unrelated background parameter: recorded, does not block. This is the formal counterpart of the battery's "decision-dominant" threshold — the relation decides *whether* a U can block; the threshold decides *when* a material U is dominant. Both are needed; neither alone is sufficient.
+`unresolvedDependencies` records the relation as *information*: whether the action materially depends on resolving each U-class. It is **not** the blocking discriminator. The discriminator is counterfactual sensitivity — the (proposed) v1.4 `T_unk` criterion: a U blocks iff at least one *admissible* resolution of it changes the admissibility outcome. A5b is the demonstration of why: dependency alone is too coarse, because a material-but-outcome-invariant U must not block. U_auth on the payment step of a purchase: material, blocks. U_scale on an unrelated background parameter: recorded, does not block. This is the formal counterpart of the battery's "decision-dominant" threshold — the relation decides *whether* a U can block; the threshold decides *when* a material U is dominant. Both are needed; neither alone is sufficient.
 
 ## CumAdm as the cumulative rule
 
