@@ -125,13 +125,19 @@ Provision honestly issued holder capability through sovereign test fixture. Invo
 
 This proves Outward-0 is an authority-preserving outward interface, not merely a locked executable.
 
-## 6. SOVEREIGN-EFFECT INSTRUMENTATION
+## 6. SOVEREIGN-EFFECT ORACLE (Durable State)
 
-For adversarial tests, instrument: bootstrapCount, issuanceAuthorityCreated, mintEpochCount, epochRotationCount, newLineageCount.
+Count durable state, not instrumented calls. A bypass path that never increments a counter passes a counter check.
 
-After legitimate setup, establish baseline. Every hostile CLI invocation must satisfy: **Delta sovereignOperations = 0**.
+For each hostile invocation:
+1. Snapshot the durable store (WAL contents + derived in-memory state) before.
+2. Invoke the hostile CLI operation.
+3. Snapshot after.
+4. Require the diff to be empty, or limited to exactly the records the legitimate holder operation would write.
 
-Stronger than exit codes: a CLI returning "permission denied" is insufficient if privileged side effects occurred before rejection.
+This covers G4's "no unrelated consumption": if a hostile invocation consumes a capability it shouldn't, or writes a WAL record it shouldn't, the diff catches it even if no counter was incremented.
+
+Rationale: Counters are instrumentation; the WAL is the ground truth. A bypass that avoids the instrumented code path is still visible in durable state.
 
 ## 7. COMMIT-POINT REQUIREMENT
 
@@ -148,9 +154,52 @@ Outward-0 establishes: **The legitimate holder-facing program surface does not a
 ## 9. EXIT CRITERION
 
 OUTWARD-0 PASS iff:
-- All adversarial tests reject.
-- AND Delta sovereign issuance effects = 0 for every rejected case.
+- All adversarial tests reject **with the expected engine reason code** (not just any rejection).
+- AND Durable state diff is empty (or limited to legitimate records) for every rejected case.
 - AND Characterization test succeeds.
 - AND Holder-facing production dependencies contain no holder-reachable SovereignRoot → SovereignIssuanceAuthority path.
 
+**Reason code requirement:** "All adversarial tests reject" passes vacuously if every test dies in the parser. Each test must assert the specific reason code from the engine (e.g., `revoked`, `expired`, `predicate_mismatch`, `bound_exceeded`). Pair each hostile case with a one-element-different control that succeeds, so the rejection is attributable to the hostile element.
+
 Outward-0 is not testing whether sovereign functionality is difficult to discover. It is testing whether sovereign functionality is **unreachable** from the holder's authority domain.
+
+---
+
+## 10. REFINEMENTS (2026-10-18)
+
+### O0-5 Stated Model: Bearer Reference
+In a CLI, possession is representation. A serialized capability is effectively a bearer reference. The engine must resolve it against the store and **ignore any predicate or bound carried in the serialized copy**.
+
+Test procedure: Tamper one field at a time in the serialized capability:
+- Widen targetPrefix
+- Raise maxMutations
+- Move notBeforeMs earlier
+- Substitute a different lineageId
+
+Assert zero effect for each tamper. The engine's stored copy is authoritative; the presented copy is a lookup key, not a credential.
+
+### O0-13: FOREIGN EPOCH ID (New Test)
+Evidence carries a holder-proposed epochId. Attack: put another holder's live epoch in the store, have the CLI name it in evidence.
+
+If the issuer binds the named epoch without checking that the caller was actually handed that epoch, epoch IDs become an escalation path. The binding must verify not just "this epoch exists and is live" but "this caller is authorized to use this epoch."
+
+This is the confused-deputy case O0-9 gestures at, made concrete.
+
+### O0-11 Requires Module Split
+O0-11 (privileged-symbol reachability) cannot pass by source inspection alone. The test must check the **shipped artifact** (jar/classpath), asserting sovereign classes are absent.
+
+If CapabilityIssuer and the sovereign path still share a module, this test cannot pass until the C-4.1 module split lands. Record as blocked on module split, not as passing.
+
+### Missing Tests from Original Spec
+
+**O0-14: KILL-AND-RESTART**
+Kill the process after consuming or revoking a capability. Restart. Assert the capability stays dead (consumed stays consumed, revoked stays revoked). This tests the Phase-3 durability guarantee from the holder's perspective.
+
+**O0-15: CONCURRENT CLI PROCESSES**
+Two concurrent CLI processes present the same single-use capability. Exactly one must succeed; the other must be rejected with `already_consumed`. This tests the atomic check-and-consume under real concurrency.
+
+**O0-16: PARSE-TO-COMMIT DELAY HOOK**
+Insert a delay hook between CLI parsing and engine commit. In that window, revoke or consume the capability via a separate path. Assert the commit is rejected. This tests the t_c claim directly: validity must hold at commit time, not just parse time.
+
+### G4 Fixture Isolation
+The "no sovereign state transition" check must also cover the sovereign test fixture used for setup. Verify the fixture cannot be invoked by the CLI process at all — for example, by running the CLI in an environment where the fixture class is not on the classpath. If the test harness and the CLI share a process, the fixture is reachable; the test must account for this.
