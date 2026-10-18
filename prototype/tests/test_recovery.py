@@ -84,5 +84,20 @@ def test_s2_recovery_batch_review():
     return "recovery S2: batch review disposes N proposals, one record each"
 
 
+def test_batch_atomicity_no_double_apply():
+    gov, _, auth_id = make_gov()
+    p = gov.propose_rail_change("agent-1", auth_id, "spend-txn", "max_per_txn",
+                                75.0, "calibration")
+    gov.approve_rail_changes([p.proposal_id], acting_principal="test-principal")
+    # The same proposal cannot be applied twice: one justification, one change.
+    try:
+        gov.approve_rail_changes([p.proposal_id], acting_principal="test-principal")
+        raise AssertionError("double-apply allowed")
+    except FailClosed as e:
+        assert e.reason == "UNKNOWN_PROPOSAL", e.reason
+    assert gov.rails["spend-txn"].max_per_txn == 75.0
+    return "recovery: batch items apply exactly once (atomic accountability)"
+
+
 TESTS = [test_s1_recovery_batch_delegation, test_s2_recovery_regime_delta,
-         test_s2_recovery_batch_review]
+         test_s2_recovery_batch_review, test_batch_atomicity_no_double_apply]

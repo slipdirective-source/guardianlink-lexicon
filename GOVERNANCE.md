@@ -86,3 +86,42 @@ This protocol revises under its own rules: amendments are Doctrine-class changes
 Every proposal for the stack must answer: **which term of the objective does this serve?** A mechanism must either increase a maximand (useful competence, legitimate delegated agency, consequential leverage) or protect a hard constraint (human sovereignty, revocability, bounded authority, corrigibility, auditability, recoverability). If it does neither, it is challenged — the burden is on the proposer to show why it's there.
 
 The razor applies retroactively: `coupling/objective-coverage.md` maps every existing mechanism to its objective term. Anything unaccounted for is flagged, not grandfathered. "Maximum leverage, minimal surrender of control" is the one-line compression; the full statement is Lexicon §0.1.
+
+## 12. Ceremony-batching principle (engineering protocol, not Lexicon doctrine)
+
+**Batch the ceremony, preserve atomic accountability.**
+
+When a hard sovereignty constraint creates operational overhead, optimize the
+ceremony surrounding the constraint before considering any relaxation of the
+constraint. Where batching is used, preserve per-item provenance, scope,
+revocability, and accountability.
+
+Batching is legitimate iff ALL of the following hold:
+
+1. Each item retains its own provenance record, scope bound, revocability,
+   and accountability trail — the batch never merges items into an
+   undifferentiated mass.
+2. The batch authorization enumerates exactly the items it covers (explicit
+   IDs; no wildcard approvals). The batch decision itself is audited as
+   covering precisely those items.
+3. No item's substantive evaluation is skipped. Per-item justification records
+   are mandatory; the batch may amortize the *ceremony* but never the
+   *judgment*.
+
+**Known failure mode — rubber-stamping.** The architecture can make inattention
+visible (per-item justifications, enumerated approvals, audited batch
+decisions); it cannot force the principal's attention. Batching large enough
+to make per-item review implausible is itself a smell: batch size is visible
+in the audit log, and persistent rubber-stamping trips the same review as
+bypass. This risk is documented, not solved.
+
+**Boundary — where batching is refused.** Where the *timing* of the ceremony
+is load-bearing, batching is not available: safety-state reassessment after a
+trigger requires per-trigger reassessment (no "clear all YELLOWs"); fresh
+assent (challenge-response) cannot be pre-batched because the challenge must
+be fresh per moment. The principle constrains itself: if per-item
+accountability cannot be preserved under batching, don't batch.
+
+Status: engineering protocol. Promotion to Lexicon doctrine requires
+demonstrated generalization beyond the S1/S2 cases — the stress test in
+`coupling/ceremony-batching.md` is the current evidence.
