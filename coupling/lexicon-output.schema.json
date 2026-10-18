@@ -311,7 +311,7 @@
       "type": "array"
     },
     "governanceStateCheck": {
-      "description": "Fail-closed enumeration. Missing, malformed, expired, superseded, unverifiable, action-mismatched, or history-mismatched governance state fails closed.",
+      "description": "Fail-closed enumeration. Missing, malformed, expired, superseded, consumed, unverifiable, action-mismatched, or history-mismatched governance state fails closed. Records are single-use: one evaluation authorizes one execution.",
       "properties": {
         "checkedAt": {
           "format": "date-time",
@@ -327,7 +327,8 @@
               "superseded",
               "unverifiable",
               "action-mismatched",
-              "history-mismatched"
+              "history-mismatched",
+              "consumed"
             ]
           },
           "type": "array"

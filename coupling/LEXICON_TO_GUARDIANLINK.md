@@ -64,7 +64,7 @@ Two records, never merged:
 
 ## Action binding (replay protection)
 
-Every LexiconOutput is bound to one exact canonical GuardianLink action (`actionBinding.canonicalActionId`) and one sealed history/state commitment (`actionBinding.historyCommitment`, e.g. the Merkle root at evaluation time). A constraint record presented against a different action, or against evolved history, is action-mismatched / history-mismatched and fails closed. Governance state that is missing, malformed, expired, superseded, unverifiable, action-mismatched, or history-mismatched fails closed — enumerated in `governanceStateCheck`, no silent pass.
+Every LexiconOutput is bound to one exact canonical GuardianLink action (`actionBinding.canonicalActionId`) and one sealed history/state commitment (`actionBinding.historyCommitment`, e.g. the Merkle root at evaluation time). A constraint record presented against a different action, or against evolved history, is action-mismatched / history-mismatched and fails closed. Governance state that is missing, malformed, expired, superseded, consumed, unverifiable, action-mismatched, or history-mismatched fails closed — enumerated in `governanceStateCheck`, no silent pass. Records are single-use: one evaluation authorizes exactly one execution, so an identical repeat action needs a fresh evaluation.
 
 ## Depends(Action, U) — necessary information, not the discriminator
 
