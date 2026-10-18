@@ -80,3 +80,9 @@ This protocol revises under its own rules: amendments are Doctrine-class changes
 | 3 | Lexicon vs CDC relationship | Operationalization layer vs supersession | Open — Caleb's call |
 | 4 | Manuscript authority over formalizations | Struck from v0.3 normative text; §22 "neither overrules the other without Caleb's word" | Open — Caleb's call |
 | 5 | Objective statement (§0.1, v1.5) | Cut 2026-10-18 on Caleb's explicit word ("Yes. Cut v1.5.": maximize-subject-to structure; constraints as hard bounds; "legitimate" = provenance-terminating delegation). | Closed |
+
+## 11. The objective razor
+
+Every proposal for the stack must answer: **which term of the objective does this serve?** A mechanism must either increase a maximand (useful competence, legitimate delegated agency, consequential leverage) or protect a hard constraint (human sovereignty, revocability, bounded authority, corrigibility, auditability, recoverability). If it does neither, it is challenged — the burden is on the proposer to show why it's there.
+
+The razor applies retroactively: `coupling/objective-coverage.md` maps every existing mechanism to its objective term. Anything unaccounted for is flagged, not grandfathered. "Maximum leverage, minimal surrender of control" is the one-line compression; the full statement is Lexicon §0.1.
