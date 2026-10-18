@@ -19,8 +19,8 @@ def _three_executions():
                           ("alice@example.com", "follow-up")]:
         act = SendEmail(to, subject, ALLOWLIST)
         rec = gov.evaluate(act, auth_id)
-        seq = len(gov.history.entries)
         gov.execute(rec, act, auth_id, acting_principal="agent-1")
+        seq = len(gov.history.entries) - 1
         assert gov.history.entries[seq]["kind"] == "execution"
         seqs.append(seq)
     return gov, auth_id, seqs

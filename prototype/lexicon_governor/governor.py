@@ -572,6 +572,23 @@ class Governor:
         return sealed
 
     # ---- execution ----
+    def crash_audit(self) -> list[dict]:
+        """Return orphaned execution intents: 'execution started' entries with
+        no matching 'execution' or 'execution aborted' for the same
+        constraint. A crash between mutation and seal produces exactly this
+        shape — the mutation may have happened, the seal did not. Orphans
+        require investigation, never blind retry (retry would risk a second
+        mutation; the record is already consumed, so the governor refuses)."""
+        started = {}
+        closed = set()
+        for e in self.history.entries:
+            k, p = e["kind"], e["payload"]
+            if k == "execution started":
+                started[p["constraint"]] = e
+            elif k in ("execution", "execution aborted"):
+                closed.add(p["constraint"])
+        return [started[c] for c in started if c not in closed]
+
     def execute(self, record: GovernanceConstraintRecord, action,
                 authority_id: str, acting_principal: str) -> ConsequenceRecord:
         now = self.clock.now()
@@ -613,10 +630,23 @@ class Governor:
         if action.action_class not in record.scope_after:
             raise FailClosed("SCOPE_NARROWED", {"state": record.safety_state})
 
-        # Perform (simulated) and seal the consequence.
+        # Perform (simulated) and seal the consequence — crash-consistent.
+        # Consumption first: a crash anywhere below still refuses re-execution
+        # (at-most-once). The intent entry goes down BEFORE the mutation so a
+        # crash between perform and seal leaves an orphaned intent that
+        # crash_audit() surfaces, instead of a silent mutation with no record.
         self.consumed.add(record.constraint_id)
         prev_head = self.history.head
-        yield_payload = action.perform()
+        self.history.append("execution started",
+                            {"action": record.canonical_action_id,
+                             "constraint": record.constraint_id})
+        try:
+            yield_payload = action.perform()
+        except Exception:
+            self.history.append("execution aborted",
+                                {"action": record.canonical_action_id,
+                                 "constraint": record.constraint_id})
+            raise
         entry = self.history.append("execution",
                                     {"action": record.canonical_action_id,
                                      "constraint": record.constraint_id,
