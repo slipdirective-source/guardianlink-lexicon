@@ -1,0 +1,6 @@
+[submodule "lexicon"]
+	path = lexicon
+	url = https://github.com/slipdirective-source/trajectory-lexicon.git
+[submodule "guardianlink"]
+	path = guardianlink
+	url = https://github.com/slipdirective-source/Guardianlink.git
