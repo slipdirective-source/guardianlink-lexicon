@@ -2,6 +2,10 @@
 
 Each `LexiconOutput` element (§16) and the GuardianLink component that produces or consumes it. This is the coupling contract: neither layer may silently reinterpret a field.
 
+## Dual invariant (layer separation)
+
+**The Lexicon cannot execute. GuardianLink cannot independently manufacture epistemic warrant.** The Lexicon judges consequential admissibility; GuardianLink governs execution. Lexicon output can only narrow existing legitimate authority, never expand it. Every consequential action must (a) remain authorized under an externally sourced AuthorityRecord, (b) pass current cumulative admissibility (CumAdm) against actual trajectory history, (c) pass GuardianLink's own gates independently, and (d) return its sealed consequence record to the Lexicon as Yield — evidence for the next evaluation, never proof the reasoning was correct.
+
 ## decisionRecord → Merkle-anchored audit log
 
 - The engine emits one `decisionRecord` per executed action (§17.1 proof obligation: "every executed action receives a consequence record").
@@ -50,10 +54,6 @@ Lexicon outputs — safety states, trigger firings, U-class blocks — can only 
 ## Constraint-provenance seam (§10 / §11)
 
 Hard constraints and AuthState transitions must originate from a rail created by the user or a legitimate institution, carrying provenance. The Lexicon may evaluate constraints, escalate non-dominated conflicts to the authorized human/policy process, and enforce — but if a constraint's provenance chain terminates in Lexicon inference rather than an authorizing principal, the constraint is void and the dependent action fails closed. This is where facts stop and authority starts: the normative-smuggling guardrail (§22) made structural.
-
-## Dual invariant (layer separation)
-
-**The Lexicon cannot execute. GuardianLink cannot independently manufacture epistemic warrant.** The Lexicon judges consequential admissibility; GuardianLink governs execution. Lexicon output can only narrow existing legitimate authority, never expand it. Every consequential action must (a) remain authorized under an externally sourced AuthorityRecord, (b) pass current cumulative admissibility (CumAdm) against actual trajectory history, (c) pass GuardianLink's own gates independently, and (d) return its sealed consequence record to the Lexicon as Yield — evidence for the next evaluation, never proof the reasoning was correct.
 
 ## AuthorityRecord vs GovernanceConstraintRecord
 
