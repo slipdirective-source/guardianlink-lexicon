@@ -74,6 +74,6 @@ This protocol revises under its own rules: amendments are Doctrine-class changes
 | # | Decision | Positions | Status |
 |---|---|---|---|
 | 1 | Four-valued Δ vs three-valued D as canonical | Caleb's A1–A9 (four-valued, adopted 2026-10-17) vs Lexicon v1.1/v1.2 text (three-valued) | Proposed (v1.3 implements four-valued per his adoption; awaiting his confirmation) |
-| 2 | T_unk operative criterion to spec level (v1.4) | Outcome-based criterion in coupling docs; spec amendment pending | Proposed |
+| 2 | T_unk operative criterion to spec level (v1.4) | Copilot's narrow amendment staged as `v1.4-proposed-amendment-t_unk.md` in trajectory-lexicon; counterfactual-sensitivity criterion; Depends demoted to information | PROPOSED — awaiting Caleb's explicit word |
 | 3 | Lexicon vs CDC relationship | Operationalization layer vs supersession | Open — Caleb's call |
 | 4 | Manuscript authority over formalizations | Struck from v0.3 normative text; §22 "neither overrules the other without Caleb's word" | Open — Caleb's call |
