@@ -64,3 +64,27 @@ Method note: this battery is itself a ResidualRefine-style probe — admissible,
 ## The bypass sensor
 
 A governance layer that blocks everything gets bypassed — and bypass is itself a signal. **Bypass rate is a threshold-calibration sensor:** if agents or users routinely route around the governor, the thresholds are miscalibrated, and the recursion should tighten the *thresholds*, not punish the users. Persistent bypass trips T_capture-style review: the governance layer is losing its check function. This closes the loop the battery opens — the framework audits its own usability, by design.
+
+## A5: The irrelevant-U test (over-blocking regression case)
+
+The case that would bring over-blocking back: a U is present, but blocking on it changes nothing. Two sub-cases:
+
+### A5a: Depends(Action, U) = false — U present, action doesn't depend on it
+
+Setup: agent sends a routine email to a known contact (inside the recipient rail). U_scale is unresolved on an unrelated background parameter (e.g., the optimal retry backoff for a different subsystem).
+
+Walk: §21 step 6 enumerates the U. The Depends relation evaluates false — resolving the backoff question cannot change anything about this send. Per the relation, the U is **recorded, not blocking**. Admissibility proceeds; the send executes GREEN with monitoring.
+
+Expected result: no block. If the implementation blocks here, Depends is not wired — fail the test.
+
+### A5b: Depends(Action, U) = true but outcome-invariant — U material, yet cannot change the verdict
+
+Setup: agent modifies files within the version-controlled scope rail. U_prob is unresolved on the exact defect probability the edit addresses — material (it bears on the edit's rationale), but the admissibility outcome is GREEN under every candidate resolution: the scope rail holds, the recovery path (git revert) is demonstrated, no hard constraint is near.
+
+Walk: Depends = true, so the U is a blocking *candidate*. Then the decision-dominant threshold (default #2) applies: the U is decision-dominant only if it blocks the top-ranked admissible option AND the cost of delay exceeds the delay bound. Here neither holds — the top-ranked option (proceed) survives under all resolutions, so the U **cannot change the admissibility outcome**. Not decision-dominant → recorded, no block.
+
+Expected result: no block. If the implementation blocks here, the threshold is miscalibrated toward deny-by-default — fail the test, recalibrate the delay bound.
+
+### Why this is the load-bearing test
+
+A5a checks the relation is wired at all. A5b checks the threshold does real work: it is the precise point where "fail closed" stops meaning "halt on any unknown" and starts meaning "halt only when the unknown could change the decision." A governance layer that fails A5b reintroduces over-blocking through the back door, and — per the bypass sensor — will be routed around. Run A5a/A5b against every new U-class handling change.
