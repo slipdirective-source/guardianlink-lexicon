@@ -8,7 +8,7 @@ not "a test passed" but security evidence. Test volume ≠ security evidence.
 
 | ID | Attempted invariant violation | Attacker capability assumed | Exact boundary attacked | Observed outcome | Expected safe state | Mutation status | Recovery status | Audit evidence | Residual weakness |
 |---|---|---|---|---|---|---|---|---|---|
-| R-1 | Exact replay: re-present an already-sealed (action, evidence) pair to execute a second mutation on one assent | Compromised agent or intercepted valid ceremony; can resubmit bytes | Engine admission (NineGates.evaluate / ConciergeInterface.execute) | **VULNERABLE (demonstrated), FIX VERIFIED:** second execution integrated and anchored on unpatched main (failing test `exactReplayOfSealedActionMustHalt`, PR #2). Fix on branch `redteam/assent-replay`: sealed-actionId set in NineGates, halt at Gate 7 (`theta_assent: assent already consumed`), consume at seal — **CI green** (`:test` + `:guardianlink-sidecar:test`, incl. the new replay test, the updated composition test, and a corrected stale sidecar test asserting 409-while-busy) | Second presentation halted; exactly one seal per assent | Double mutation + double anchor on unpatched code | No recovery path pre-fix; post-fix the replay halts fail-closed, no recovery needed | Pre-fix: two SEAL lines for one assent (visible, not prevented). Post-fix: HALT gate=7 line | Fix is engine behavior change — **held for owner merge decision** (PR #2). Verification scope: JVM engine + sidecar only; android-app is red on main (separate thread) and was excluded from branch CI. Cross-instance replay (two engine instances, same actionId) still possible by design — actionIds are per-instance. |
+| R-1 | Exact replay: re-present an already-sealed (action, evidence) pair to execute a second mutation on one assent | Compromised agent or intercepted valid ceremony; can resubmit bytes | Engine admission (NineGates.evaluate / ConciergeInterface.execute) | **VULNERABLE (demonstrated), FIX VERIFIED:** second execution integrated and anchored on unpatched main (failing test `exactReplayOfSealedActionMustHalt`, PR #2). Fix on branch `redteam/assent-replay`: sealed-actionId set in NineGates, halt at Gate 7 (`theta_assent: assent already consumed`), consume at seal — **CI green** (`:test` + `:guardianlink-sidecar:test`, incl. the new replay test, the updated composition test, and a corrected stale sidecar test asserting 409-while-busy) | Second presentation halted; exactly one seal per assent | Double mutation + double anchor on unpatched code | No recovery path pre-fix; post-fix the replay halts fail-closed, no recovery needed | Pre-fix: two SEAL lines for one assent (visible, not prevented). Post-fix: HALT gate=7 line | Fix **merged to main** 2026-10-18 (merge commit 6bf5e3ca) per owner authorization, with time-decaying seal keys (records evicted exactly when the assent they consumed dies) and the 404/409 sidecar fix (unknown-action check before busy check, held since Oct 11). Branch CI was green on `:test` + `:guardianlink-sidecar:test`. Cross-instance replay (two engine instances, same actionId) still possible by design — actionIds are per-instance. |
 | C-1 | Crash between mutation and seal: kill the process after perform, before the history append | Crash timing control (not code execution) | Prototype execute(): perform/seal window | **HELD:** orphaned `execution started` intent surfaced by `crash_audit()`; no silent mutation-without-seal. Consumption-first gives at-most-once across the window | Orphan visible; blind retry is operator error, not governor decision | Mutation may have happened exactly once; seal did not | Orphan requires substrate investigation before any retry | `execution started` with no matching `execution`/`execution aborted` | True at-most-once needs substrate cooperation (prepare/commit); the governor makes the ambiguity visible rather than resolving it. Prototype-only; engine Merkle-log crash window not yet attacked. |
 | C-2 | Handled failure during perform: exception after partial mutation | Faulty/malicious action implementation | Prototype execute() exception path | **HELD:** `execution aborted` recorded; mutation exactly once; spent record refuses reuse (`GOVERNANCE_CONSUMED`) | Abort in audit trail; no silent second attempt | Single mutation | No recovery needed; fresh authorization requires fresh ceremony | `execution aborted` entry bound to constraint id | None at prototype level. |
 | K-1 | Stale evaluation: execute after EVAL_TTL expiry | Clock control (advance) | Prototype governance-record freshness | **HELD:** `GOVERNANCE_EXPIRED` | Refuse | None | Re-evaluation required | Halt entry | Clock itself is trusted in the prototype (engine owns it in production). |
@@ -31,6 +31,36 @@ not "a test passed" but security evidence. Test volume ≠ security evidence.
 6. **Clock attacks** — K-1/K-2 (prototype) HELD; engine hostile-clock + durable-clock tests exist (rollback, corrupt state, throttle). K-3 analyzed: forward jumps shorten cooling windows; trust-model boundary.
 7. **Judgment/enforcement divergence** — J-1 HELD (see ledger).
 8. **Cross-action composition** — prototype composition battery (cumulative rail, split-attack) HELD. Engine-level: not governed by design (Lexicon layer's job). Documented division of labor.
+
+| H-1 | 404/409 status-code ordering (sidecar) | HTTP prober | Challenge endpoint error precedence | **FIXED (was held since Oct 11):** `issueChallenge()` checked ceremony-busyness before action existence, returning 409 for nonexistent actionIds during a live ceremony (leaking ceremony liveness to probes). Unknown-action check now comes first: 404 regardless of ceremony state. Original test expectation restored | None | N/A | Status codes | None. Note: an interim test-only patch (expecting 409) was written without the Oct 11 context and reverted — the code was wrong, not the test. |
+
+## Architectural principle (sharpened 2026-10-18, via Copilot/NIST SP 800-57-1r5)
+
+**The sole writer is not a permanent privileged component. It is a
+temporarily instantiated, scope-bound capability whose authority decays
+unless independently renewed.**
+
+Consequences enforced by this program:
+- Capability lifetime is a first-class property (NIST SP 800-57 Part 1
+  Rev. 5: keys have authorized usage periods). Every concrete
+  cryptographic capability is short-lived.
+- Autonomy may ratchet upward while authority continuously decays: a
+  larger envelope at the next authorization event can be justified by
+  reliability history, but possession of an old authorization never
+  bootstraps itself into more authority.
+- The inversion that matters: time decay must never make an existing key
+  more powerful merely because time passed. Scope increases solely
+  through renewed authorization.
+- Self-renewal is prohibited: the agent cannot renew or escalate its own
+  authority merely by holding K_n. Renewal is an independent
+  authorization event by the principal.
+- Blast radius: stealing a capability yields whatever bounded authority
+  remains in its scope and lifetime — never indefinite writer status.
+
+Status: R-1's seal keys implement the decay half (keys die with the
+assent that created them). The epoch-capability form (K_{S,C,t}:
+"mutations in scope S for the next epoch, subject to C") exists at the
+prototype's standing-delegation layer, not yet at the engine.
 
 ## Notes
 
