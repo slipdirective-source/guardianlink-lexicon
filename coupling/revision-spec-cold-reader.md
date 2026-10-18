@@ -187,6 +187,55 @@ The three identity types exist to provide a mechanically reliable key against wh
 
 ---
 
+
+---
+
+## 7a-ii. Identity Separation and Sovereign Issuance Boundary (Specified 2026-10-18)
+
+### Identity types
+Three distinct identity types, each with a different role:
+
+- **SovereignRootId**: Identifies the sovereign authority source. Stable across all epochs and lineages issued under it. The root is the authority source; issued capabilities are bounded products of it. The root itself is NOT a consumable permit.
+
+- **LineageId**: Identifies a continuing constraint history. Stable across epoch rotation within the same lineage. Exists to provide a mechanically reliable key against which a future persistent counter can be maintained. Does NOT currently enforce cumulative constraints — that remains explicitly residual.
+
+- **EpochId**: Identifies a single epoch (one issuance, one local budget). Unique per mint. The unit to which `maxMutations` applies.
+
+### Operations
+- **Rotate Epoch**: Issue a replacement epoch under the SAME lineage. The permit carries an explicit `lineageId`. The new epoch receives a fresh local budget because the issuance was sovereign-authorized, not because the old epoch's consumption was forgotten.
+
+- **New Lineage**: Establish a genuinely separate constraint history. The permit carries an explicit `NEW` marker (not a lineageId). This is a distinct sovereign operation, not a rotation synonym. A caller cannot erase cumulative history by labeling replacement as new lineage creation.
+
+`LineageId` allocation must be durable and unique. If "new lineage" can reuse an ID, it becomes a history-reset path.
+
+### Sovereign issuance boundary
+The sovereign issuance authority is structurally separate from mutation authority:
+
+1. **SovereignIssuanceAuthority** is a distinct type. It cannot be constructed through the public capability API.
+
+2. It cannot be derived from, attenuated from, or delegated via a `MutationCapability` or `EpochCapability`. Holder-held authority cannot become issuance authority.
+
+3. `mintEpoch` requires possession of a live `SovereignIssuanceAuthority` object. Not a boolean flag, not a role string, not a caller identity check.
+
+4. Expiry, revocation, exhaustion, or destruction of an epoch never invokes issuance. There is no automatic renewal path.
+
+5. Reissue (even with identical scope and bounds) uses the same sovereign path as first issue. Revocation does not authorize replacement.
+
+6. `allowOverlap=true` requires sovereign authorization. It cannot be proposed by holder-controlled evidence alone (holder cannot set it via epochId, lineageId, or other holder-supplied data).
+
+7. **Threat model for "unforgeable":** On the JVM, `internal` visibility is public in bytecode and reflection can construct anything. The mechanical guarantee is a **permit** verified by MAC or signature, with the signing key held outside the holder's address space. The permit ID is recorded in the WAL so single-use survives restart. The guarantee holds across the process boundary, not just the module boundary.
+
+8. The sovereign root is the persistent authority source. Individual issuances may use consumable permits (one permit per mint, recorded in WAL), but the root itself is not consumed.
+
+### Why this matters for C-4
+C-4 does not require cumulative cross-epoch enforcement yet. It requires making epoch creation itself **structurally incapable of becoming the mechanism that defeats epoch-local enforcement**.
+
+The clean boundary: fresh sovereign issuance may intentionally receive a fresh local budget; capability holders cannot cause that reset themselves.
+
+If epoch creation were reachable through holder-controlled authority, automatic renewal, or anything derived from a consumable capability, then `maxMutations` could be effectively refreshed by rotating epochs. That would be an authority-reset path, not merely an implementation detail.
+
+---
+
 ## 7b. Open Items for Assessor
 
 1. **Sovereign-only issuance (C-4.1):** How should the sovereign issuance path be mechanically distinguished from general issuer access? Current `mintEpoch` is public. Options: split API, sealed authorization token, module boundary. Needs architectural decision.
