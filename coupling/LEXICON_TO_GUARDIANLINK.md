@@ -73,3 +73,15 @@ Every LexiconOutput is bound to one exact canonical GuardianLink action (`action
 ## CumAdm as the cumulative rule
 
 CumAdm (§16.1) is the single canonical cumulative-action rule for sequential interventions: individually admissible actions can compose into an inadmissible trajectory, so the gate evaluates over G_(0:t), Sigma_(0:t), Omega_(0:t) — never the instantaneous state alone. (Note: the engine's previously documented residuals do not list a cumulative-reasoning gap; this is adopted as a new hardening requirement on the coupling, not a cited defect.)
+
+### Prior art: path-dependent governance (Kaptein et al., 2026)
+
+Path-dependent admissibility is **not claimed as novel**. Kaptein, Khan & Podstavnychy, *Runtime Governance for AI Agents: Policies on Paths* (arXiv:2603.16586, March 2026), make the execution path the central object of runtime governance and formalize compliance policies as deterministic functions mapping **agent identity, partial path, proposed next action, and organizational state** to a policy violation probability — the same structural idea as CumAdm's evaluation over trajectory history rather than instantaneous state. (Abstract verified via arXiv 2026-10-18; full-text comparison against their AI-Act-inspired example policies is in progress.)
+
+Where this stack differs is what sits **around and under** the path-dependent evaluation:
+
+1. **Typed non-numeric uncertainty instead of violation probabilities.** Their policy function outputs a violation probability, and they list *risk calibration* as an open problem. The Lexicon's P_unknown rule answers it directly: never fabricate a number — where the probability is ungrounded, raise the safety state instead, and type the uncertainty (U-classes) with a resolution path rather than pricing it. A probability threshold smuggles ungrounded precision into the decision; a typed U block keeps the ignorance visible and actionable.
+2. **Authority separation.** Proposal, evidence, authorization, execution, and audit are distinct loci with distinct provenance requirements (the dual invariant at the top of this document). Their abstract's framework does not separate these — which is where capture enters: whoever manufactures the warrant also disposes of it.
+3. **Provenance-as-warrant.** Nothing in the Lexicon authorizes; authority records are externally sourced and provenance must terminate in the authorizing principal. Path-dependent evaluation without provenance discipline evaluates the path but not the *standing* of the actor walking it.
+
+Novelty claim, stated plainly: **typed non-numeric uncertainty plus authority separation, layered over path-dependent evaluation.** The path-dependence itself is prior art and cited as such.
