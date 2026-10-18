@@ -221,3 +221,90 @@ structurally (refuse / count-as-spent), and the availability cost
 5. Permanent negative controls extended: post-crash replay of a sealed
    actionId → refused; overspend past `maxMutations` across a crash →
    impossible (test kills the process mid-stream).
+
+---
+
+## 7. Addendum 2026-10-18: the crash-consistency law and mechanical serialization
+
+### 7.1 The law
+
+The two attacks share one missing ordering invariant. Stated as the
+architectural issue:
+
+> A consequential effect becomes durable before the durable
+> governance state required to interpret that effect.
+
+Stated as the law:
+
+> **Durability of effect must never precede durability of the
+> governance state that constrains its interpretation.**
+
+This is a specialized application of write-ahead logging — the
+durable record precedes the state modification so recovery can
+determine what was intended — stricter in a governance-specific
+direction: if recovery cannot determine whether an external or
+irreversible effect occurred, it must conservatively treat authority
+as consumed. The asymmetry is load-bearing:
+
+> Overcounting can reduce availability. Undercounting can exceed
+> delegated authority.
+
+Availability loss is priced; authority excess is forbidden. The
+recovery rule (§4) follows: ambiguous → refuse / count-as-spent.
+
+### 7.2 Serialization, strengthened: mechanical, not conventional
+
+§5 item 3 was stated as a review gate on future embedders. That is
+insufficient. The target property is: **the reservation/seal
+operation is atomic across all callers capable of reaching commit** —
+not "embedders promise to serialize."
+
+The mechanism: **the durable governance log is the serialization
+point.** The law (§7.1) already requires every commit path to
+traverse the durable log (seal log for C-3, reservation log for H1)
+before the effect. Put the mutual exclusion there:
+
+1. Acquire an OS-level exclusive lock on the log file
+   (`FileChannel.lock()` on Android/JVM; `flock(LOCK_EX)` /
+   `fs2::lock_exclusive` in Rust — same file, cross-language,
+   cross-process).
+2. While holding it: bounds/consumption check + reservation/seal
+   append (+ fsync per the failure model below).
+3. Release. Then perform the effect.
+
+Why this is mechanical rather than conventional: no embedder can
+commit without traversing the log (the law forbids it), and no two
+committers can traverse the log concurrently (the lock forbids it).
+The atomicity doesn't depend on any embedder's discipline — not
+Android's, not Rust's, not a future third. Within a single process
+an in-process lock suffices and is cheaper; across processes the
+file lock is the shared boundary.
+
+The alternative — a single governor process hosting the only commit
+boundary, all embedders as IPC clients — also works but restructures
+the architecture. The file-lock design achieves the same atomicity
+without it.
+
+### 7.3 Failure models, made explicit
+
+The reservation/seal write must precede the effect under each model:
+
+- **Process crash** (kill -9, OOM, panic): `write()` before the
+  effect suffices — the page cache survives process death.
+- **Host power loss / kernel panic**: `fsync()` before the effect is
+  required — otherwise the reservation can be lost while an external
+  effect stands, and recovery will see unspent authority that was
+  spent.
+- **Host adversary with disk write access**: out of scope here —
+  that is the storage-integrity trust model (§5 item 1), handled by
+  the anchor/port substitution, not by ordering.
+
+### 7.4 Revised build constraints
+
+§6 item 3 is superseded: embedder serialization is not a review gate.
+The commit path holds an OS-exclusive lock on the durable governance
+log across check+reserve+record, and the law (§7.1) is the stated
+crash-consistency invariant for the system. Tests must demonstrate:
+kill -9 between reservation and effect → recovery counts the
+reservation consumed; concurrent committers from two processes →
+no overspend, ever.
