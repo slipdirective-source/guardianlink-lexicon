@@ -308,3 +308,30 @@ crash-consistency invariant for the system. Tests must demonstrate:
 kill -9 between reservation and effect → recovery counts the
 reservation consumed; concurrent committers from two processes →
 no overspend, ever.
+
+### 7.5 Qualifications (load-bearing details)
+
+**Advisory locks.** `flock()` is advisory: it constrains cooperating
+paths rather than preventing an unrelated process from writing the
+file without acquiring the lock. This fits the threat model —
+*every governed commit must cross this path* (the law, §7.1), so all
+legitimate committers cooperate by construction; hostile host-level
+disk access is explicitly out of scope (§7.3). Advisory is sufficient
+if and only if the law holds universally. A commit path that skips
+the log is not a lock failure; it is a mediation failure (§1).
+
+**Inode stability — negative control.** If one process locks the file
+while another unlinks and recreates the pathname, the two lock
+different inodes and execute concurrently. Therefore: the lock/log
+file is created once under protected ownership and is **never
+deleted as ordinary cleanup** (no rotation-by-replace, no tmp-rename
+without re-lock discipline). Negative control: a test/process that
+attempts to replace the lock file's inode must fail or be detected;
+CI asserts the inode is stable across the commit path's lifetime.
+
+**Cross-runtime contention must be demonstrated, not assumed.** JVM
+`FileChannel.lock()` and the Rust locking primitive must be shown to
+contend on the *deployed* filesystem — a startup/platform test, not
+an API-name assumption. Filesystem semantics (NFS, overlayfs,
+some Android scoped-storage paths) can silently break cross-process
+locking; the test runs where the system runs.
