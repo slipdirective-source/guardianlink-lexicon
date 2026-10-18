@@ -40,3 +40,13 @@ See `safety-state-mapping.md`. The safety state binds the engine's response (§1
 ## Trust separation (§15)
 
 ProposalAuthority ≠ EvidenceAuthority ≠ AuthorizationAuthority ≠ ExecutionAuthority ≠ AuditAuthority. In the coupled system: the Lexicon layer proposes and types; the engine executes; the audit log attests. Self-reported evidence cannot satisfy a hard gate whose failure benefits the reporter unless separately attested — the engine must not grade its own homework on gates where it is the interested party.
+
+## One-way ratcheting (coupling invariant)
+
+Lexicon outputs — safety states, trigger firings, U-class blocks — can only **tighten** what the PolicyEngine does. They can never loosen a rail, grant authority, or mint a permission. This is the coupling's top invariant: it keeps the governance layer from becoming a back door to authority creep (the capture vector §12 exists to prevent).
+
+**Refinement — the ratchet applies to authority, not to state estimates.** Safety states may relax (RED → YELLOW → GREEN) when reassessment under fresh evidence warrants it; that is estimate updating, not authority granting, and forbidding it would ratchet every escalation into permanence (itself a failure mode). What never flows upward from the Lexicon layer: new permissions, widened scopes, loosened hard constraints, or synthesized consent. This mirrors the engine's evidence-only trust model: the engine never takes a claim of permission at face value — permission must arrive as a rail with provenance.
+
+## Constraint-provenance seam (§10 / §11)
+
+Hard constraints and AuthState transitions must originate from a rail created by the user or a legitimate institution, carrying provenance. The Lexicon may evaluate constraints, escalate non-dominated conflicts to the authorized human/policy process, and enforce — but if a constraint's provenance chain terminates in Lexicon inference rather than an authorizing principal, the constraint is void and the dependent action fails closed. This is where facts stop and authority starts: the normative-smuggling guardrail (§22) made structural.
