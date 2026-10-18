@@ -165,3 +165,22 @@ mediation-before-crypto, key-is-not-governor — are the mechanical
 form of the one invariant in §1. Implementation remains mechanical;
 the remaining work is still concentrated in the answered questions
 above, which are now decisions with defaults rather than open design.
+
+## 5. Methodological observation (retained)
+
+When a lower layer violates an established invariant, first move the
+enforcement boundary down. Do not automatically create a new
+architectural concept.
+
+This is what happened with Android mediation, serialization,
+capability issuance, crash recovery, exhaustion accounting, and
+renewal. The architecture wasn't missing six ideas. Its existing
+ideas hadn't reached consequence yet. The repeated transformation:
+
+*assumption at a higher layer → enforced condition at the lowest
+consequential layer.*
+
+Apply it before inventing. If the moved boundary holds, no new
+concept was needed. If reality refuses the moved boundary, *that* is
+where a genuinely new invariant lives — and the refusal is the
+evidence for it.
