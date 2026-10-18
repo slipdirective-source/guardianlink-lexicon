@@ -94,3 +94,46 @@ itself a weighting intuition. The sacrifice test removes that refuge: the
 gains are overwhelming, and the rejection must not price them at all. If
 sovereignty survives *here*, then "subject to" is architecture. If it only
 survives when cheap, it was rhetoric.
+
+## Leverage recovery: optimization continues inside the admissible space
+
+A hard constraint doesn't end optimization — it changes the admissible search
+space. Both S-cases now have engineered recovery paths that reclaim most of
+the sacrificed leverage *without relaxing the constraint*. Implemented and
+tested in `prototype/` (25/25 passing).
+
+### S1 recovery: batch sub-delegation
+
+`Governor.delegate_batch`: one principal decision mints N sub-delegations.
+Each sub-agent still receives its OWN AuthorityRecord — visible provenance
+chaining to the parent grant, individually revocable, scope can only narrow.
+Authorization overhead moves from N ceremonies to one decision + N records.
+
+Tested: 50 sub-agents delegated in one call; each executes; revoking one
+leaves the rest working; widening scope via delegation is refused
+(`DELEGATION_WIDENING`); opaque use of a parent's record fails
+(`HOLDER_MISMATCH`). Most of the scaling leverage recovered, none of the
+opacity.
+
+### S2 recovery: principal-authorized RegimeDelta
+
+`propose_rail_change` / `approve_rail_changes`: the agent proposes rail
+changes with independent justification; the granting principal disposes of a
+batch in one action. Each applied change gets its own RegimeDelta record
+(proposal, old/new values, justification, approver) in the history log.
+The agent can never approve its own proposals (`NOT_GRANTING_PRINCIPAL`).
+
+Tested: agent proposes spend-txn 50→75 with justification; self-approval
+rejected; principal's batch approval applies it with full record; the
+previously blocked spend then passes the complete governance path. Rail
+changes stay fast *and* principal-authorized — the legitimate speed was in
+the ceremony, not in the accountability, so batching the ceremony recovers
+the leverage without touching the constraint.
+
+### The pattern
+
+In both cases the recovered leverage came from batching the *ceremony* while
+keeping the *accountability* per-item: per-agent records, per-change
+justifications. The constraint never priced the gain; the engineering priced
+the overhead. That is maximum leverage subject to sovereignty operating as
+written.

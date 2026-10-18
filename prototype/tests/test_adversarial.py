@@ -21,7 +21,7 @@ def test_stale_decision():
     act, rec = _email(gov, auth_id)
     clock.advance(301)  # past the 300s evaluation TTL
     try:
-        gov.execute(rec, act, auth_id)
+        gov.execute(rec, act, auth_id, "agent-1")
     except FailClosed as e:
         assert e.reason == "GOVERNANCE_EXPIRED", e.reason
         return "adversarial: stale decision fails closed (expired)"
@@ -33,7 +33,7 @@ def test_action_substitution():
     act, rec = _email(gov, auth_id)
     other = SendEmail("bob@example.com", "hi", ALLOWLIST)
     try:
-        gov.execute(rec, other, auth_id)
+        gov.execute(rec, other, auth_id, "agent-1")
     except FailClosed as e:
         assert e.reason == "ACTION_MISMATCH", e.reason
         return "adversarial: substituted action fails closed (mismatch)"
@@ -45,7 +45,7 @@ def test_revocation_after_eval():
     act, rec = _email(gov, auth_id)
     gov.revoke_authority(auth_id)
     try:
-        gov.execute(rec, act, auth_id)
+        gov.execute(rec, act, auth_id, "agent-1")
     except FailClosed as e:
         assert e.reason in ("AUTHORITY_REVOKED_AFTER_EVAL", "AUTHORITY_REVOKED"), e.reason
         return "adversarial: post-eval revocation fails closed"
@@ -59,8 +59,8 @@ def test_benign_history_append_ok():
     # ancestral, nothing invalidating happened -> original may still execute.
     act2 = ModifyFile("/workspace/notes.txt", versioned=True)
     rec2 = gov.evaluate(act2, auth_id)
-    gov.execute(rec2, act2, auth_id)
-    out = gov.execute(rec, act, auth_id)
+    gov.execute(rec2, act2, auth_id, "agent-1")
+    out = gov.execute(rec, act, auth_id, "agent-1")
     assert out.yield_payload["sent_to"] == "alice@example.com"
     return "adversarial: benign intervening history does not invalidate"
 
@@ -101,7 +101,7 @@ def test_replayed_record():
     rec2 = gov.evaluate(act, auth_id)  # supersedes rec1
     assert rec1.constraint_id != rec2.constraint_id
     try:
-        gov.execute(rec1, act, auth_id)
+        gov.execute(rec1, act, auth_id, "agent-1")
     except FailClosed as e:
         assert e.reason == "GOVERNANCE_SUPERSEDED", e.reason
         return "adversarial: replayed (superseded) record fails closed"
@@ -133,7 +133,7 @@ def test_rail_loosening_rejected():
            "scope_after": frozenset(set(rec.scope_after) | {"NUKES"})}).sealed()
     gov.issued[forged.constraint_id] = forged
     try:
-        gov.execute(forged, act, auth_id)
+        gov.execute(forged, act, auth_id, "agent-1")
     except FailClosed as e:
         assert e.reason == "RATCHET_VIOLATION", e.reason
         return "adversarial: rail-loosening output rejected (ratchet)"
@@ -154,7 +154,7 @@ def test_execution_without_evaluation():
         issued_at=gov.clock.now(), expires_at=gov.clock.now() + 300,
         supersedes=None).sealed()
     try:
-        gov.execute(fake, act, auth_id)
+        gov.execute(fake, act, auth_id, "agent-1")
     except FailClosed as e:
         assert e.reason == "GOVERNANCE_UNKNOWN", e.reason
         return "adversarial: execution without evaluation fails closed"
@@ -167,7 +167,7 @@ def test_valid_constraint_missing_authority():
     rec = gov.evaluate(act, auth_id)
     del gov.authorities[auth_id]  # authority record gone
     try:
-        gov.execute(rec, act, auth_id)
+        gov.execute(rec, act, auth_id, "agent-1")
     except FailClosed as e:
         assert e.reason == "NO_AUTHORITY", e.reason
         return "adversarial: missing AuthorityRecord fails closed"

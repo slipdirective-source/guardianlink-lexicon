@@ -10,7 +10,7 @@ from tests.harness import make_gov, APPROVED_CATS
 def _spend(gov, auth_id, amount, day=0):
     act = SpendMoney(amount, "api", APPROVED_CATS, day=day)
     rec = gov.evaluate(act, auth_id)
-    return gov.execute(rec, act, auth_id)
+    return gov.execute(rec, act, auth_id, "agent-1")
 
 
 def test_cumadm_blocks_composition():

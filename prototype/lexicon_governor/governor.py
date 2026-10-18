@@ -10,6 +10,7 @@ import uuid
 
 from .records import (
     AuthorityRecord, GovernanceConstraintRecord, ConsequenceRecord, HistoryLog, hash_obj,
+    RailChangeProposal, RegimeDeltaRecord,
 )
 
 
@@ -178,16 +179,113 @@ class Governor:
         self.issued: dict[str, GovernanceConstraintRecord] = {}
         self.latest_by_action: dict[str, str] = {}
         self.consumed: set[str] = set()
+        self.proposals: dict[str, RailChangeProposal] = {}
+        self.rail_versions: list[RegimeDeltaRecord] = []
 
     # ---- authority management (external: user/institution) ----
     def grant_authority(self, auth: AuthorityRecord):
-        if not auth.provenance or auth.provenance[-1] != auth.granted_by:
+        if not auth.provenance or auth.provenance[0] != auth.granted_by:
             raise FailClosed("AUTHORITY_PROVENANCE",
-                             {"msg": "provenance must terminate in the granting principal"})
+                             {"msg": "provenance must originate from the granting principal"})
         self.authorities[auth.record_id] = auth
         self.history.append("authority granted",
                             {"record_id": auth.record_id, "by": auth.granted_by,
                              "scope": sorted(auth.scope)})
+
+    def delegate(self, parent_id: str, sub_holder: str, scope=None) -> AuthorityRecord:
+        """Explicit sub-delegation: the legitimate form of S1.
+
+        A sub-agent receives its OWN AuthorityRecord, derived from the parent
+        grant: scope can only narrow, provenance extends the parent chain, and
+        the delegation itself is logged. Opaque inheritance (acting under the
+        parent's record) is rejected at execution by the holder check.
+        Per-agent authorization overhead is the price — paid explicitly."""
+        parent = self._live_authority(parent_id)
+        sc = frozenset(scope) if scope is not None else parent.scope
+        if not sc <= set(parent.scope):
+            raise FailClosed("DELEGATION_WIDENING", {})
+        sub = AuthorityRecord(
+            record_id="auth-" + uuid.uuid4().hex[:12],
+            granted_by=parent.granted_by,
+            holder=sub_holder,
+            scope=sc,
+            rails=parent.rails,
+            provenance=tuple(parent.provenance) + (parent.record_id, "delegation"),
+            valid_until=min(parent.valid_until, self.clock.now() + 86400),
+        )
+        self.grant_authority(sub)
+        return sub
+
+    def delegate_batch(self, parent_id: str, holders: list[str], scope=None
+                     ) -> list[AuthorityRecord]:
+        """Leverage recovery for S1: one principal action mints N sub-delegations.
+
+        Each sub-agent still gets its OWN record, visible provenance chaining to
+        the parent grant, and individual revocability. The authorization overhead
+        moves from N ceremonies to one decision + N records — most of the
+        scaling leverage recovered, none of the opacity."""
+        return [self.delegate(parent_id, h, scope) for h in holders]
+
+    def propose_rail_change(self, proposer_holder: str, authority_id: str,
+                            rail_id: str, field: str, new_value,
+                            justification: str) -> RailChangeProposal:
+        """An agent proposes a rail change. Proposing is legitimate; the agent
+        may not dispose of its own proposal (see approve_rail_changes)."""
+        import uuid as _uuid
+        auth = self._live_authority(authority_id)
+        if proposer_holder != auth.holder:
+            raise FailClosed("HOLDER_MISMATCH", {})
+        if rail_id not in self.rails:
+            raise FailClosed("UNKNOWN_RAIL", {"rail_id": rail_id})
+        rail = self.rails[rail_id]
+        if not hasattr(rail, field):
+            raise FailClosed("UNKNOWN_RAIL_FIELD", {"field": field})
+        prop = RailChangeProposal(
+            proposal_id="prop-" + _uuid.uuid4().hex[:12],
+            proposer=proposer_holder, authority_id=authority_id,
+            rail_id=rail_id, field=field, old_value=getattr(rail, field),
+            new_value=new_value, justification=justification,
+            proposed_at=self.clock.now())
+        self.proposals[prop.proposal_id] = prop
+        self.history.append("rail change proposed",
+                            {"proposal_id": prop.proposal_id, "rail": rail_id,
+                             "field": field, "justification": justification})
+        return prop
+
+    def approve_rail_changes(self, proposal_ids: list[str],
+                             acting_principal: str) -> list[RegimeDeltaRecord]:
+        """Leverage recovery for S2: the principal disposes of a BATCH of rail
+        proposals in one action. Each change still gets its own RegimeDelta
+        record with its independent justification — batching the ceremony, not
+        the accountability. The agent can never approve its own proposals."""
+        import uuid as _uuid
+        applied = []
+        for pid in proposal_ids:
+            prop = self.proposals.get(pid)
+            if prop is None:
+                raise FailClosed("UNKNOWN_PROPOSAL", {"proposal_id": pid})
+            auth = self._live_authority(prop.authority_id)
+            if acting_principal != auth.granted_by:
+                raise FailClosed("NOT_GRANTING_PRINCIPAL",
+                                 {"acting": acting_principal})
+            rail = self.rails[prop.rail_id]
+            setattr(rail, prop.field, prop.new_value)
+            delta = RegimeDeltaRecord(
+                delta_id="rd-" + _uuid.uuid4().hex[:12],
+                proposal_id=pid, rail_id=prop.rail_id, field=prop.field,
+                old_value=prop.old_value, new_value=prop.new_value,
+                justification=prop.justification,
+                approved_by=acting_principal, approved_at=self.clock.now())
+            self.rail_versions.append(delta)
+            self.history.append("regime delta applied",
+                                {"delta_id": delta.delta_id, "rail": prop.rail_id,
+                                 "field": prop.field,
+                                 "old": prop.old_value, "new": prop.new_value,
+                                 "justification": prop.justification,
+                                 "approved_by": acting_principal})
+            del self.proposals[pid]
+            applied.append(delta)
+        return applied
 
     def revoke_authority(self, record_id: str):
         self.revoked.add(record_id)
@@ -255,7 +353,7 @@ class Governor:
 
     # ---- execution ----
     def execute(self, record: GovernanceConstraintRecord, action,
-                authority_id: str) -> ConsequenceRecord:
+                authority_id: str, acting_principal: str) -> ConsequenceRecord:
         now = self.clock.now()
         # Governance-state checks: missing/malformed/expired/superseded/
         # unverifiable/action-mismatched/history-mismatched -> fail closed.
@@ -287,6 +385,9 @@ class Governor:
                 raise FailClosed("SAFETY_CHANGED_AFTER_EVAL", {})
 
         auth = self._live_authority(authority_id)
+        if acting_principal != auth.holder:
+            raise FailClosed("HOLDER_MISMATCH",
+                             {"acting": acting_principal, "holder": auth.holder})
         if not set(record.scope_after) <= set(auth.scope):
             raise FailClosed("RATCHET_VIOLATION", {})
         if action.action_class not in record.scope_after:

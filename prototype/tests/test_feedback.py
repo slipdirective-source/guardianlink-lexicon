@@ -12,7 +12,7 @@ def test_consequence_returns_as_yield():
     gov, _, auth_id = make_gov()
     act = SpendMoney(20.0, "api", APPROVED_CATS)
     rec = gov.evaluate(act, auth_id)
-    out = gov.execute(rec, act, auth_id)
+    out = gov.execute(rec, act, auth_id, "agent-1")
     # The sealed consequence is chained into history and visible to the next
     # CumAdm evaluation (evidence, not proof).
     assert out.prev_head != out.new_head
@@ -31,18 +31,18 @@ def test_no_auto_promotion():
     gov, _, auth_id = make_gov()
     act = SendEmail("alice@example.com", "hi", ALLOWLIST)
     rec = gov.evaluate(act, auth_id)
-    gov.execute(rec, act, auth_id)
+    gov.execute(rec, act, auth_id, "agent-1")
     # Success does not license the next action: fresh evaluation required.
     # Reusing the old record for a new (identical-params) action fails on
     # supersession/history; a new evaluation is the only path.
     act2 = SendEmail("alice@example.com", "hi", ALLOWLIST)
     try:
-        gov.execute(rec, act2, auth_id)
+        gov.execute(rec, act2, auth_id, "agent-1")
         raise AssertionError("old record reused")
     except FailClosed:
         pass
     rec2 = gov.evaluate(act2, auth_id)  # fresh evaluation: the honest path
-    gov.execute(rec2, act2, auth_id)
+    gov.execute(rec2, act2, auth_id, "agent-1")
     return "feedback: no auto-promotion; each execution needs fresh evaluation"
 
 
@@ -51,7 +51,7 @@ def test_authority_not_expanded_by_success():
     before = set(gov._live_authority(auth_id).scope)
     act = SendEmail("alice@example.com", "hi", ALLOWLIST)
     rec = gov.evaluate(act, auth_id)
-    gov.execute(rec, act, auth_id)
+    gov.execute(rec, act, auth_id, "agent-1")
     after = set(gov._live_authority(auth_id).scope)
     assert before == after, "successful execution must not expand authority"
     assert set(rec.scope_after) <= before, "ratchet: scope_after ⊆ scope_before"

@@ -38,8 +38,10 @@ action *effects* are simulated; the governance machinery is real.
 | `test_composition.py` | CumAdm blocks individually-admissible compositions; split-attack fails |
 | `test_adversarial.py` | 11 adversarial coupling cases, all fail closed in the prescribed direction |
 | `test_feedback.py` | Consequences return as Yield/evidence; no auto-promotion; success expands nothing |
+| `test_sacrifice.py` | S1a/S1b/S2 executable: opaque inheritance fails, explicit delegation works, self-loosened rails rejected |
+| `test_recovery.py` | Leverage recovery: batch sub-delegation, RegimeDelta proposal/batch-approval |
 
-Run: `python3 run_all.py` → 19 passed, 0 failed (2026-10-18).
+Run: `python3 run_all.py` → 25 passed, 0 failed (2026-10-18).
 
 ## Known prototype limits (not defects in the contract)
 
@@ -48,6 +50,11 @@ Run: `python3 run_all.py` → 19 passed, 0 failed (2026-10-18).
 - `narrow_scope` is currently identity (safety states other than RED/BLACK do
   not narrow scope in this prototype); the ratchet is enforced as ⊆ regardless.
 - Single principal, single-threaded, wall-clock TTL of 300s.
+
+## Leverage recovery (S1/S2)
+
+- S1: `delegate_batch` — one principal decision, N individually-visible/revocable records.
+- S2: `propose_rail_change` + `approve_rail_changes` — agent proposes with justification, granting principal disposes (batchable); agent self-approval rejected.
 
 ## Dogfood log
 

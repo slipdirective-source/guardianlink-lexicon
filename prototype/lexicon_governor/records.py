@@ -53,6 +53,7 @@ class AuthorityRecord:
 
     record_id: str
     granted_by: str            # authorizing principal
+    holder: str                # the agent this grant is issued to
     scope: frozenset           # authorized action classes, e.g. {"SEND_EMAIL"}
     rails: tuple               # rail identifiers constraining the grant
     provenance: tuple          # chain terminating in granted_by
@@ -106,3 +107,32 @@ class ConsequenceRecord:
     prev_head: str
     new_head: str
     sealed_at: float
+
+
+@dataclass(frozen=True)
+class RailChangeProposal:
+    """An agent's proposal to change a rail. Proposing is allowed; disposing
+    is not — approval requires the granting principal (RegimeDelta)."""
+    proposal_id: str
+    proposer: str            # holder proposing (the agent)
+    authority_id: str
+    rail_id: str
+    field: str
+    old_value: object
+    new_value: object
+    justification: str       # independent reason (RegimeDelta requirement)
+    proposed_at: float
+
+
+@dataclass(frozen=True)
+class RegimeDeltaRecord:
+    """Applied rail change: what changed, why, who authorized it."""
+    delta_id: str
+    proposal_id: str
+    rail_id: str
+    field: str
+    old_value: object
+    new_value: object
+    justification: str
+    approved_by: str         # granting principal, never the agent
+    approved_at: float

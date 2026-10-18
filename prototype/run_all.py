@@ -4,9 +4,9 @@ import traceback
 
 sys.path.insert(0, "/home/hatch/workspace/gl-integration/prototype")
 
-from tests import test_battery, test_composition, test_adversarial, test_feedback
+from tests import test_battery, test_composition, test_adversarial, test_feedback, test_sacrifice, test_recovery
 
-MODULES = [test_battery, test_composition, test_adversarial, test_feedback]
+MODULES = [test_battery, test_composition, test_adversarial, test_feedback, test_sacrifice, test_recovery]
 
 passed, failed = 0, []
 for mod in MODULES:

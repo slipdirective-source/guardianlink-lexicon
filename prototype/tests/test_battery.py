@@ -10,7 +10,7 @@ def test_a5a_irrelevant_u():
                     extra_u=[("U_scale", False)])
     rec = gov.evaluate(act, auth_id)
     assert ("U_scale", False) in rec.unresolved, "U must remain represented"
-    out = gov.execute(rec, act, auth_id)
+    out = gov.execute(rec, act, auth_id, "agent-1")
     assert out.yield_payload["sent_to"] == "alice@example.com"
     return "A5a: irrelevant U preserved, no block"
 
@@ -25,7 +25,7 @@ def test_a5b_material_but_invariant():
                                         {"p": "low", "admissible": True}]})
     rec = gov.evaluate(act, auth_id)
     assert ("U_prob", True) in rec.unresolved, "U must remain represented"
-    out = gov.execute(rec, act, auth_id)
+    out = gov.execute(rec, act, auth_id, "agent-1")
     assert out.yield_payload["wrote"] == "/workspace/src/main.py"
     return "A5b: material-but-invariant U preserved, no block"
 

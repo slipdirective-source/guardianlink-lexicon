@@ -8,6 +8,7 @@ def make_gov():
     auth = AuthorityRecord(
         record_id="auth-test-1",
         granted_by="test-principal",
+        holder="agent-1",
         scope=frozenset({"SEND_EMAIL", "MODIFY_FILE", "SPEND_MONEY",
                          "EXTERNAL_API_CALL"}),
         rails=tuple(ALL_RAILS.keys()),
