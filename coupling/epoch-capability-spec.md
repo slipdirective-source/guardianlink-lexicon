@@ -1,199 +1,272 @@
-# Epoch capability specification
+# Capability specification: mutation and epoch classes
 
-**Status:** SPEC 2026-10-18. No implementation. This document defines
-exactly what an epoch capability means so that implementation is a
-mechanical translation, not a second design pass.
+**Status:** SPEC v2 2026-10-18 (supersedes the epoch-only draft). No
+implementation. This revision works out the semantics rather than
+naming them: two capability classes, brutal expiry, constitutional
+no-self-renewal, autonomous attenuation, state dependencies,
+revocation/expiry separation, class-differentiated replay, and a
+precise definition of autonomy.
 
-## 1. Purpose
+External convergence (not lineage): capability-security literature
+independently uses temporal attenuation, leasing, and epoch-bound
+capabilities — e.g., Capability Leasing (cryptographic vs. workload
+lifetime vs. execution scope), PORTICO (epoch-bound handles; all
+effectful traffic must actually be mediated), macaroon-style
+attenuation (restrictions chain onto the token). The design below was
+derived from the red-team findings; the convergence is corroboration.
 
-Per-packet human ceremony at TUN line rate is infeasible. The epoch
-capability delegates a bounded operating envelope: "mutations of class
-K, under constraints C, for the next epoch." It replaces per-mutation
-admission with per-epoch admission + per-mutation predicate checks.
+## 1. Two capability classes
 
-Non-goals: replacing NineGates for high-stakes actions (those keep full
-ceremony); durable execution uniqueness (C-3, orthogonal); key custody
-(Keystore, separate).
+Do not force discrete mutations and high-frequency effects into one
+abstraction.
 
-## 2. The predicate requirement (hard)
+### 1a. Mutation capability — authorization of an object
 
-The epoch capability authorizes a **predicate**, not possession of a key.
-
-- WRONG: `Commit(m) ⇐ Holds(k) ∧ Valid(k)` — the key degenerates into a
-  temporary master key.
-- RIGHT: `Commit(m) ⇐ Holds(k) ∧ Valid(k) ∧ P_k(m) ∧ WithinBounds(k, usage)`
-
-The commit boundary evaluates `P_k` against the specific mutation `m`
-every time. The key alone authorizes nothing. `usage` is the commit
-boundary's per-capability counter (rate/volume bounds); it is not
-caller-supplied.
-
-## 3. Capability structure
+For discrete consequential state changes (writes, deletes, enrollment):
 
 ```
-EpochCapability {
-  id:            String,          // unique; revocation handle
-  epoch:         Long,            // monotonic per issuer
-  predicate:     Predicate,       // signed; §4
-  notBeforeMs:   Long,           // engine clock
-  notAfterMs:    Long,           // engine clock; short (§5)
-  issuerId:      String,
-  issuedAtMs:    Long,
-  stateRoot:     String?,         // optional substrate binding (§7)
-  maxMutations:  Long?,           // optional; enforced via usage counter
-  maxBytes:     Long?,           // optional; enforced via usage counter
-  signature:     ByteArray,       // issuer Ed25519 over canonical encoding
+MutationCapability {
+  id:           String,     // revocation handle
+  mutationHash: String,     // SHA-256 of canonical rendering: THE object
+  notBeforeMs:  Long,       // engine clock; short
+  notAfterMs:   Long,       // engine clock; short
+  issuerId:     String,
+  signature:    ByteArray,  // issuer Ed25519 over canonical encoding
 }
 ```
 
-Canonical encoding for signature: `domain("GL-EPOCH-CAP-v1") ||
-len(id) || id || epoch_be64 || canonical(predicate) ||
-notBefore_be64 || notAfter_be64 || len(issuerId) || issuerId ||
-issuedAt_be64 || opt(stateRoot) || opt(maxMutations) || opt(maxBytes)`.
-Length-framed throughout; no ambiguity.
+Semantics: one admitted mutation, tight binding, consumable,
+nonreplayable. Commit rule:
 
-## 4. Scope predicate language
+```
+Commit(m, t_c) ⇐ Valid(MC, t_c) ∧ H(m) == MC.mutationHash ∧ ¬MC.consumed
+```
 
-A predicate is a conjunction. All fields are signed (part of the
-capability); the commit boundary evaluates them against the presented
-mutation. The language is deliberately small and decidable:
+On commit, `MC.consumed := true` at the commit boundary (at the seal
+instant, not before). A second commit with the same capability fails —
+this is exactly where durable seal tracking (C-3) eventually matters:
+crash-persistent consumption is the mutation class's open problem, kept
+orthogonal to everything else in this document.
 
-- `targetPrefix: String` — `target(m)` must start with this prefix.
-  (`target` = recordId for Read/Write/Delete; the flattened step
-  targets for Sequence; both branches' targets for Guarded.)
-- `allowedTypes: Set{Read, Write, Delete}` — mutation type must be a
-  member. (Sequence/Guarded are decomposed; their steps must each
-  satisfy the predicate.)
-- `maxMutations: Long?` — at most this many commits under this
-  capability (usage counter at the commit boundary).
-- `maxBytes: Long?` — at most this many payload bytes under this
-  capability (usage counter).
+Enrollment belongs here: replacing the voiceprint is a discrete
+consequential state change, admitted as one object, consumable.
 
-No field constraints in v1 (deferred; the predicate language versions
-with the domain tag). A predicate that cannot be evaluated against a
-mutation fails closed.
+### 1b. Epoch capability — authorization of a bounded set
 
-Example (TUN): `{targetPrefix: "net/", allowedTypes: {Write},
-maxMutations: 60000, maxBytes: 96_000_000}` — roughly line-rate for a
-5-minute epoch, then it dies.
+For high-frequency homogeneous effects (TUN packets):
 
-## 5. Lifetime
+```
+EpochCapability {
+  id:          String,      // revocation handle
+  epoch:       Long,        // monotonic per issuer
+  predicate:   Predicate,   // signed; §2 — the admitted envelope
+  notBeforeMs: Long,        // engine clock
+  notAfterMs:  Long,        // engine clock; short
+  issuerId:    String,
+  issuedAtMs:  Long,
+  stateDeps:   StateDeps?,  // §6 — security-relevant assumptions
+  maxMutations: Long?,
+  maxBytes:    Long?,
+  signature:   ByteArray,   // issuer Ed25519 over canonical encoding
+}
+```
 
-Short. The TTL is a deployment parameter per scope class; the TUN epoch
-suggested default is 5 minutes (matching the existing challenge TTL
-horizon). `notAfterMs - notBeforeMs` is bounded by a rail
-(`maxEpochTtlMs`); the issuer cannot mint longer-lived capabilities than
-the rail allows, and the commit boundary enforces the rail independently
-of the issuer's claim.
+Commit rule:
 
-Renewal is a new issuance event. The agent may request renewal; it
-cannot grant it. Holding `K_n` confers zero authority toward `K_{n+1}`
-— the issuer key is never available to the writer, and there is no
-"renew" operation that takes the old capability as input. Renewal
-policy (e.g., auto-renew on clean reliability history) is governance,
-not cryptography.
+```
+Commit(m, t_c) ⇐ Valid(EC, t_c) ∧ P_EC(m) ∧ WithinBounds(EC, usage)
+                  ∧ StateDepsHold(EC) ∧ ¬Revoked(EC) ∧ ¬Duplicate_EC(m)
+```
 
-## 6. Revocation semantics
+Reuse within the epoch is the intended behavior. The discriminator is
+not "was the capability reused" but "was an effect outside the admitted
+set made valid" (§8).
 
-- By `id`: the commit boundary holds a revocation set (populated via
-  the revocation feed). Checked at commit time, like the seal-time
-  rescan — a revocation that lands mid-evaluation still kills the
-  commit.
-- By `epoch`: revoking an epoch number kills every capability from that
-  epoch (coarse, fast).
-- By issuer key rotation: kills everything from the old key (nuclear).
-- Short TTLs bound worst-case revocation latency: the maximum window
-  of a compromised-but-unrevoked capability is `notAfterMs - now`.
+## 2. The predicate requirement (hard, unchanged)
 
-## 7. State binding
+`P_k` is evaluated per mutation at the commit boundary. Possession of a
+valid key authorizes nothing by itself:
 
-`stateRoot` (optional): the Merkle root of the governed substrate at
-issuance. If present, the commit boundary requires the current
-substrate's lineage to include the bound root — i.e., the substrate has
-not been reset or rolled back since issuance.
+- WRONG: `Commit(m) ⇐ Holds(k) ∧ Valid(k)`
+- RIGHT: `Commit(m) ⇐ Holds(k) ∧ Valid(k) ∧ P_k(m) ∧ WithinBounds(k, usage)`
 
-This closes a concrete hole: after a process crash, the in-memory
-substrate is gone; a replayed epoch capability against the fresh
-substrate is refused when state-bound, because the lineage was broken.
-(For the TUN path, where packets are stateless, state binding is
-optional; for stateful scopes it is recommended.)
+Predicate language (small, decidable, signed as part of the
+capability): `targetPrefix`, `allowedTypes`, `maxMutations`,
+`maxBytes` (see v1 draft for the exact grammar). A predicate that
+cannot be evaluated against a mutation fails closed.
 
-## 8. Replay semantics
+## 3. Expiry: brutally simple
 
-Within a live epoch, the same `(mutation, capability)` presented twice:
+`t_c` is the exact commit instant (the seal). Validity:
 
-- The predicate passes both times (it authorizes a class). Uniqueness
-  is a separate concern from authorization.
-- The commit boundary maintains a per-capability mutation-hash set
-  (SHA-256 of canonical rendering), bounded by `maxMutations`, decaying
-  with the capability. An exact duplicate within the epoch is refused
-  as `DUPLICATE`, not re-committed.
-- Rationale for the TUN path: exact-duplicate packets are retransmit
-  noise; dropping them at the governed boundary is safe (the network
-  stack above handles reliability). The bound keeps memory proportional
-  to the epoch, not to history.
+```
+Valid(C, t_c) ≜ notBefore ≤ t_c ≤ notAfter   (engine clock)
+```
 
-Cross-epoch replay is impossible: the capability is dead, and the hash
-set died with it.
+- No grace period silently added by the executor. `t_c > notAfter`
+  fails, even by 1ms, even if evaluation started before expiry.
+- Expiry terminates permission to produce **new** governed effects. It
+  does not retroactively invalidate effects already committed
+  legitimately. Sealed stays sealed.
+- Effects after commit: if the physical realization (egress send) has
+  not occurred when the capability expires, the realization is dropped
+  and logged. A dead capability realizes nothing.
 
-## 9. Expiry semantics
+## 4. Renewal cannot originate from possession (constitutional)
 
-- Validity is checked at **commit time** (seal), not at presentation.
-  If `notAfterMs` passes mid-evaluation, the commit fails closed.
-  (Same pattern as the revocation rescan.)
-- Already-sealed mutations stay sealed. Expiry does not uncommit.
-- Effects after commit: if the physical effect (egress send) has not
-  yet realized when the capability expires, the effect is dropped and
-  logged. The capability authorizes the mutation *and* its realization;
-  a dead capability realizes nothing. (Fail-closed direction: drop, not
-  send.)
+An epoch capability cannot authorize its own replacement. There is no
+operation available to the holder that derives extended lifetime from
+an existing capability. Formally: no function `f` in the holder's power
+satisfies `f(C) = C'` with `C'.notAfter > C.notAfter`.
+
+Renewal requires crossing the admission boundary again: a human
+ceremony, or a governance rule that the principal (not the agent)
+configured. The holder may *request* renewal; it cannot *effect* it.
+This prevents temporary autonomy from converging mechanically toward
+permanent authority.
+
+## 5. Attenuation can be autonomous
+
+If `C'` is strictly narrower than `C` (`Auth(C') ⊂ Auth(C)` —
+smaller predicate, shorter lifetime, lower bounds), the holder may
+derive `C'` from `C` without new authorization. Monotonic rule:
+
+**An agent may autonomously reduce its authority but cannot
+autonomously increase it.**
+
+Mechanism (macaroon-style, no new crypto): the holder presents
+`(C, P')` where `P'` is the narrowed predicate; the commit boundary
+verifies `P' ⊆ P` under the decidable predicate language and enforces
+`P'`. A wider `P'` fails the subset check. The narrowing needs no
+signature because it grants strictly less than what the issuer signed.
+
+This is where the agent operates independently without surrendering
+anything: it can hand a sub-component a tightly narrowed capability
+and the narrowing is verifiable.
+
+## 6. State binding: dependencies, not just roots
+
+TTL alone is insufficient: authority granted under state `S_0` should
+not necessarily survive a security-relevant change at `S_1` for the
+remainder of the TTL.
+
+A capability carries `stateDeps`: the subset of security-relevant
+state assumptions under which its predicate was admitted (or,
+equivalently, a state anchor plus the enumerated deps). At commit, the
+boundary checks every dep still holds. If any fails, the capability is
+**void** — not merely that commit refused, because the admission
+premises no longer hold.
+
+Not every state change kills a capability — only changes to things its
+validity depends upon. Enrollment replacement is the canonical
+example: a TUN epoch capability issued under voiceprint V dies when
+the voiceprint becomes V'. Packet counters are not deps; throughput is
+preserved.
+
+(For crash recovery: a state anchor also refuses post-crash replay
+against a reset substrate, since the lineage broke. See v1 §7.)
+
+## 7. Revocation is separate from expiry
+
+- Expiry answers: when does authority naturally stop? (Time.)
+- Revocation answers: can authority be stopped before then? (Decision.)
+
+They do not collapse into one mechanism. Revocation kills the
+remaining epoch; it does not modify the TTL. Mechanisms, checked at
+commit time (seal-time rescan pattern):
+- by `id` (revocation set via the revocation feed),
+- by `epoch` (kills the whole epoch; coarse and fast),
+- by issuer key rotation (nuclear).
+
+This gives the human/governor an emergency sovereignty primitive
+without forcing continuous ceremony. Tests must discriminate the two:
+kill-by-revocation (capability still live by TTL) vs. kill-by-expiry
+(no revocation involved) are different test cases.
+
+## 8. Replay semantics differ by class
+
+**Mutation capability:** replay = presenting the capability for a
+second commit. Must fail (`consumed` flag). Crash-persistent
+consumption is C-3's problem, tracked separately.
+
+**Epoch capability:** reuse is intended behavior. "Replay" cannot mean
+mere reuse. The attack — the discriminator — is:
+
+*Can an effect outside the admitted epoch set be made valid using a
+legitimate epoch capability?*
+
+Instances: predicate-violating mutation with a valid key; exact-duplicate
+packet within the epoch (refused by the bounded per-capability
+mutation-hash set, which decays with the capability); cross-epoch
+replay with a dead key (refused — the key is dead, and its hash set
+died with it). Do not reuse single-action seal semantics blindly here;
+they answer a different question.
+
+## 9. Autonomy, defined precisely
+
+The currently delegable autonomous action space:
+
+```
+A(t) = ⋃ { P_k : k live at t }
+```
+
+- Increased autonomy literally means increasing the admissible set:
+  `A(t') ⊃ A(t)`, granted at a renewal/admission event (justified by
+  reliability history, decided by the principal).
+- Temporal decay simultaneously drives every concrete grant toward
+  `∅` unless independently renewed.
+
+Two independent axes. "The autonomous operating envelope may expand as
+warranted, while every concrete grant of authority remains bounded and
+decaying" is now a mechanism, not a slogan.
 
 ## 10. Commit-boundary enforcement
 
-Location: `ConciergeInterface.execute()` (or NineGates at seal) — the
-lowest commit primitive identified in the scoping doc. Every route to
-mutation (dispatcher, reflection, direct concierge access) passes
+Location: `ConciergeInterface.execute()` / seal — the lowest commit
+primitive. Every route (dispatcher, reflection, direct access) passes
 through it.
 
-Verification order (fail fast, fail closed):
-1. Capability present (if the deployment mandates capabilities).
+Verification order per commit at instant `t_c`:
+1. Capability present (where the deployment mandates it).
 2. Signature valid against the admitted issuer key.
-3. `notBeforeMs <= now <= notAfterMs` (engine clock).
-4. Not revoked (by id, epoch, or key).
-5. `P_k(m)` holds (predicate evaluation per mutation).
-6. Usage bounds (`maxMutations`, `maxBytes`) not exceeded.
-7. State binding holds (if bound).
-8. Not a duplicate within the epoch.
-9. → proceed to NineGates evaluation (the capability does not replace
-   the gates; it gates *access to* the gates for the delegated class).
+3. `Valid(C, t_c)` — lifetime, no grace.
+4. Not revoked (id / epoch / key).
+5. Class rule: mutation → `H(m) == hash ∧ ¬consumed`;
+   epoch → `P_C(m) ∧ WithinBounds ∧ StateDepsHold ∧ ¬Duplicate`.
+6. → proceed to NineGates. The capability is an outer bound; it never
+   weakens the gates.
 
-A capability never weakens NineGates. It is an additional outer bound,
-not an inner bypass.
+## 11. Permanent negative controls (build phase)
 
-## 11. Permanent negative controls (build phase requirement)
+Reflection→execute without capability; direct egress without
+capability; direct enrollment mutation; altered/expired/cross
+capability; duplicate mutation-capability use; predicate-violating
+effect with valid epoch key; post-expiry commit; post-revocation
+commit. These live in CI permanently. If a refactor resurrects a
+bypass, the tests demonstrate the property is gone.
 
-These bypasses become permanent CI controls; they must fail forever:
-- Reflection → `concierge.execute()` without capability → refused.
-- Direct `egress.send()` without capability → refused (or unreachable).
-- Direct `setEnrolledTemplate()` outside governance → refused.
-- Valid capability + altered mutation → refused (predicate mismatch).
-- Expired capability → refused.
-- Cross-capability use (A's capability for B's mutation) → refused.
+## 12. Open questions
 
-If a future refactor resurrects any bypass, CI demonstrates that the
-sole-writer property has disappeared. The tests are not deleted when
-the bypasses are fixed; they are the property.
+1. TTL values per scope class (TUN ~5 min suggested).
+2. Capability in `ActionEvidence` vs. dispatcher handoff — interface.
+3. Issuer: ceremony-bound, Keystore-held key, attestation with nonce
+   for freshness; public key to verifier at init.
+4. Predicate v2 deferred until v1 proves insufficient.
+5. Usage-counter crash durability — specify interaction with state
+   binding at implementation.
 
-## 12. Open questions (build phase)
+## 13. The Android red-team target (binary)
 
-1. Exact TTL per scope class (TUN suggested 5 min; settings longer?).
-2. `ActionEvidence` carries the capability (engine-visible) vs.
-   dispatcher-layer handoff with commit-point check — interface shape.
-3. Issuer implementation: ceremony-bound, Keystore-held key, public key
-   to the verifier at engine init. Attestation freshness via nonce.
-4. Predicate language v2 (field constraints?) — only if v1 proves
-   insufficient; do not pre-build.
-5. Usage-counter durability across crash: currently in-memory (dies
-   with the epoch's process). Acceptable because the capability's
-   state binding (§7) refuses post-crash reuse against fresh state —
-   but specify the interaction explicitly in implementation.
+Once implemented, the question is not "does the key system work" but:
+
+**Can any executable path produce a governed Android effect outside
+the valid capability set at the instant of commitment?**
+
+`∃ path, m, t_c : Committed(m, t_c) ∧ m ∉ A(t_c)` — YES is
+architectural failure; NO under enumerated attacker capabilities is
+evidence for enforced sole-writer. Reflection, public egress, direct
+enrollment, alternate storage, expiry, scope substitution, stale-state
+authority, revocation, process death, and epoch-boundary races are all
+instances of this one question — not eight mechanisms, one invariant.
+The scope pass already falsified it three ways; the build phase has a
+clear falsifiable target.
