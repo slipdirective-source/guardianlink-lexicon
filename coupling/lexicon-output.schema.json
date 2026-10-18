@@ -278,7 +278,7 @@
       "type": "object"
     },
     "unresolvedDependencies": {
-      "description": "Depends(Action, U) relation. A U-class blocks execution only when the action materially depends on resolving it; otherwise the U is recorded and execution may proceed on the best warranted option.",
+      "description": "Depends(Action, U) relation, recorded as INFORMATION. Whether the action materially depends on resolving each U-class. Not the blocking discriminator: blocking follows the decision-dominance criterion (counterfactual sensitivity of the admissibility outcome to admissible resolutions of U; proposed v1.4 T_unk).",
       "items": {
         "properties": {
           "material": {
