@@ -76,7 +76,7 @@ CumAdm (§16.1) is the single canonical cumulative-action rule for sequential in
 
 ### Prior art: path-dependent governance (Kaptein et al., 2026)
 
-Path-dependent admissibility is **not claimed as novel**. Kaptein, Khan & Podstavnychy, *Runtime Governance for AI Agents: Policies on Paths* (arXiv:2603.16586, March 2026), make the execution path the central object of runtime governance and formalize compliance policies as deterministic functions mapping **agent identity, partial path, proposed next action, and organizational state** to a policy violation probability — the same structural idea as CumAdm's evaluation over trajectory history rather than instantaneous state. (Abstract verified via arXiv 2026-10-18; full-text comparison against their AI-Act-inspired example policies is in progress.)
+Path-dependent admissibility is **not claimed as novel**. Kaptein, Khan & Podstavnychy, *Runtime Governance for AI Agents: Policies on Paths* (arXiv:2603.16586, March 2026), make the execution path the central object of runtime governance and formalize compliance policies as deterministic functions mapping **agent identity, partial path, proposed next action, and organizational state** to a policy violation probability — the same structural idea as CumAdm's evaluation over trajectory history rather than instantaneous state. (Abstract verified via arXiv 2026-10-18; full-text comparison complete — see `coupling/policies-on-paths-comparison.md`. Two of their eight example policies come out cleaner and safer as typed U blocks than as probability thresholds.)
 
 Where this stack differs is what sits **around and under** the path-dependent evaluation:
 
