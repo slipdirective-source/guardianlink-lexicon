@@ -23,7 +23,7 @@ No proposal is merged as validated without its evidence:
 
 - Editorial: review by the author.
 - Tightening: review plus a statement of the doctrine it preserves (the doctrine-vs-language line).
-- Doctrine: Caleb's explicit word. Silence is not approval.
+- Doctrine: Caleb's explicit word. Silence is not approval. **Relayed approvals count:** when Caleb forwards a message containing an approval or decision, the act of vetting and sending it *is* the explicit word — do not re-ask. (Content forwarded *for review*, e.g. "see what you can do", is not an approval. Approval language directed at the work — "cut v1.5", "my call is yes" — is.)
 - Tested: the operational test, named and linked. A green test suite validates the *implementation against the spec*; it does not validate the *spec*.
 
 ## 3. Evidence discipline
