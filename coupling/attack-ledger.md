@@ -34,6 +34,26 @@ not "a test passed" but security evidence. Test volume ≠ security evidence.
 
 | H-1 | 404/409 status-code ordering (sidecar) | HTTP prober | Challenge endpoint error precedence | **FIXED (was held since Oct 11):** `issueChallenge()` checked ceremony-busyness before action existence, returning 409 for nonexistent actionIds during a live ceremony (leaking ceremony liveness to probes). Unknown-action check now comes first: 404 regardless of ceremony state. Original test expectation restored | None | N/A | Status codes | None. Note: an interim test-only patch (expecting 409) was written without the Oct 11 context and reverted — the code was wrong, not the test. |
 
+## Process evidence: the 404/409 discriminator incident (2026-10-18)
+
+A red-team test (`challengeEndpointIssuesSingleUseChallenge`) expected 404
+for an unknown actionId during a live ceremony; the implementation
+returned 409 (busy-check before existence-check). The first response was
+to change the test to expect 409 — agreeing with the implementation.
+That destroyed the discriminator: the test no longer distinguished
+correct from incorrect behavior, it merely recorded what the code did.
+
+Recovered via memory: the defect had been isolated 2026-10-11 as a code
+bug (ordering), with the original 404 expectation correct. The test was
+restored and the code fixed (unknown-check first). The discriminator now
+works again: the test falsifies the buggy ordering.
+
+Lesson, kept as discipline: when a test and implementation disagree, the
+test is evidence of intent until proven otherwise. Changing the test to
+match the code is the failure mode; fixing the code to match the test
+(or proving the test wrong from first principles) is the work. A test
+that cannot fail is not a test.
+
 ## Architectural principle (sharpened 2026-10-18, via Copilot/NIST SP 800-57-1r5)
 
 **The sole writer is not a permanent privileged component. It is a
