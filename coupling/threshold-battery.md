@@ -87,7 +87,7 @@ Expected result: no block. If the implementation blocks here, the threshold is m
 
 ### Why this is the load-bearing test
 
-A5a checks the relation is wired at all. A5b checks the threshold does real work: it is the precise point where "fail closed" stops meaning "halt on any unknown" and starts meaning "halt only when the unknown could change the decision." A governance layer that fails A5b reintroduces over-blocking through the back door, and — per the bypass sensor — will be routed around. Run A5a/A5b against every new U-class handling change.
+A5a checks the relation is wired at all. A5b checks the threshold does real work: it is the precise point where "fail closed" stops meaning "halt on any unknown" and starts meaning "halt only when the unknown could change the decision." A governance layer that fails A5b reintroduces over-blocking through the back door, and — per the bypass sensor — will be routed around. Run A5a/A5b/A5c against every new U-class handling change. **Normative against Trajectory Lexicon v1.4** (T_unk decision-dominance criterion), cut 2026-10-18 with Caleb's explicit word.
 
 ### A5c: The complement — material, decision-variant unknown (positive control)
 
