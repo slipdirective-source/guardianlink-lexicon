@@ -184,3 +184,49 @@ Apply it before inventing. If the moved boundary holds, no new
 concept was needed. If reality refuses the moved boundary, *that* is
 where a genuinely new invariant lives — and the refusal is the
 evidence for it.
+
+## 6. Release doctrine: when to stop pre-deployment killing
+
+Not "when have we proven it perfect" — that stopping condition never
+arrives. The question is when another round of attempted falsification
+has lower expected value than bounded operation with continuous
+monitoring.
+
+**Don't stop** while a known counterexample violates a claimed core
+invariant. That is different from a residual weakness. If you can
+currently demonstrate the violation, you are not finished with that
+claim. (C-3 was exactly that situation before the durable-seal
+correction.)
+
+**Stop pre-deployment killing** when:
+
+> We tried hard enough to kill the properties that matter, preserved
+> the evidence of everything that succeeded and failed, bounded what
+> we still don't know, and the remaining uncertainty no longer
+> warrants withholding operation.
+
+This does not require proving the absence of flaws (impossible). It
+requires knowing what was demonstrated, what wasn't, and what happens
+if a remaining assumption fails.
+
+**Then change modes** — not from attacking to trusting, but from
+preflight to operation:
+
+- From: "Can we imagine another way to break this?"
+- To: "What does actual operation expose that our present
+  discrimination couldn't?"
+
+Continuous red-teaming, not permanent preflight. The transition is
+reversible: new evidence (a demonstrated counterexample, a breached
+assumption, a changed substrate) forces straight back into attack
+mode. Then let reality join the red team.
+
+**The resolution criterion** (the deeper stopping rule):
+
+> Stop increasing test resolution when the additional discrimination
+> is no longer consequential to the decision currently being made.
+> Resume increasing resolution when circumstances make a previously
+> inaccessible distinction consequential.
+
+That doesn't close inquiry — it closes *this operational decision at
+this resolution*.
